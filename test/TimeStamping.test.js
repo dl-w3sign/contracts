@@ -42,8 +42,8 @@ describe("Time Stamping", () => {
       assert.equal(await timeStamping.getHashStamp(HASH), await getCurrentBlockTime());
     });
 
-    it("should revert if hash is not existing", async () => {
-      truffleAssert.reverts(timeStamping.getHashStamp(ANOTHER_HASH), "Hash is not existing");
+    it("should return 0 if hash is not existing", async () => {
+      assert.equal(await timeStamping.getHashStamp(ANOTHER_HASH), 0);
     });
   });
 });
