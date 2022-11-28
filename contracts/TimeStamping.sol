@@ -13,8 +13,6 @@ contract TimeStamping {
     }
 
     function getHashStamp(bytes32 hash_) external view returns (uint256) {
-        uint256 result_ = _history[hash_];
-        require(result_ != 0, "TimeStamping: Hash is not existing");
-        return result_;
+        return _history[hash_];
     }
 }
