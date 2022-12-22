@@ -1,6 +1,6 @@
 {
-  "name": "time-stamping",
-  "version": "1.0.0",
+  "name": "time-stamping-contracts",
+  "version": "2.0.0",
   "license": "MIT",
   "author": "Distributed Lab",
   "description": "",
@@ -25,8 +25,8 @@
   },
   "dependencies": {
     "@dlsl/dev-modules": "^1.7.0",
-    "@openzeppelin/contracts": "^4.7.0",
-    "@openzeppelin/contracts-upgradeable": "4.7.0",
+    "@openzeppelin/contracts": "^4.8.0",
+    "@openzeppelin/contracts-upgradeable": "4.8.0",
     "dotenv": "^10.0.0",
     "typechain": "^8.1.0"
   },
