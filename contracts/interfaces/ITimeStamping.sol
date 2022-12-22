@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.17;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 /**
  * @notice The Iime Stamping contract is used to store time stamps of documents.
  */
 interface ITimeStamping {
     /**
      * @notice A structure that stores information about time stamp
-     * @param timeStamp a time stamp
+     * @param timestamp a time stamp
      * @param lastCumulativeSum an array of signers
      */
-    struct TimeStampInfo {
-        uint256 timeStamp;
-        address[] signers;
+    struct StampInfo {
+        uint256 timestamp;
+        EnumerableSet.AddressSet signers;
     }
 
     /**
      * @notice The event that is emitted during the adding new time stamps
      * @param hash a hash of the added time stamp
+     * @param timestamp a time stamp
      * @param signers an array of the signers
      */
-    event TimeStampCreated(bytes32 indexed hash, address[] signers);
+    event StampCreated(bytes32 indexed hash, uint256 timestamp, address[] signers);
 
     /**
      * @notice Function for create new time stamp
@@ -41,11 +44,12 @@ interface ITimeStamping {
     /**
      * @notice Function for obtain time stamp and its signers
      * @param hash_ a hash for time stamp
-     * @return timeStampInfo a struct of TimeStampInfo
+     * @return timestamp a time stamp
+     * @return signers an array of the signers
      */
-    function getTimeStamp(
+    function getStampInfo(
         bytes32 hash_
-    ) external view returns (TimeStampInfo memory timeStampInfo);
+    ) external view returns (uint256 timestamp, address[] memory signers);
 
     /**
      * @notice Function for obtain array of hashes that user signed

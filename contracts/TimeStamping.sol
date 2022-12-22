@@ -9,12 +9,13 @@ import "./interfaces/ITimeStamping.sol";
 
 contract TimeStamping is ITimeStamping, EIP712 {
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.AddressSet;
     using ECDSA for bytes32;
 
     bytes32 internal constant _CREATE_TYPEHASH = keccak256("Create(bytes32 hash)");
 
-    mapping(bytes32 => TimeStampInfo) private _history;
-    mapping(address => bytes32[]) private _signersHistory;
+    mapping(bytes32 => StampInfo) internal _history;
+    mapping(address => EnumerableSet.Bytes32Set) internal _signersHistory;
 
     constructor() EIP712("TimeStamping", "1") {}
 
@@ -25,51 +26,53 @@ contract TimeStamping is ITimeStamping, EIP712 {
         bytes32[] calldata s_,
         uint8[] calldata v_
     ) external override {
-        require(_history[hash_].timeStamp == 0, "TimeStamping: Hash collision.");
+        require(_history[hash_].timestamp == 0, "TimeStamping: Hash collision.");
 
         uint256 signersCount_ = signers_.length;
-        require(signersCount_ > 0, "TimeStamping: Incorect number of signers.");
         require(
-            signersCount_ == r_.length &&
+            signersCount_ > 0 &&
+                signersCount_ == r_.length &&
                 signersCount_ == s_.length &&
                 signersCount_ == v_.length,
-            "TimeStamping: Incorect parameters count."
+            "TimeStamping: Incorect parameters length."
         );
 
-        bytes32 hashTypedDataV4_ = _hashTypedDataV4(
+        StampInfo storage stampInfo = _history[hash_];
+        stampInfo.timestamp = block.timestamp;
+
+        bytes32 typeHash_ = _hashTypedDataV4(
             keccak256(abi.encode(_CREATE_TYPEHASH, hash_))
         );
         for (uint256 i = 0; i < signersCount_; i++) {
-            address signer_ = hashTypedDataV4_.recover(v_[i], r_[i], s_[i]);
-
-            uint256 matchesCount_ = 0;
-            for (uint256 j = 0; j < signersCount_; j++) {
-                if (signers_[j] == signer_) {
-                    matchesCount_++;
-                }
-            }
-            require(matchesCount_ == 1, "TimeStamping: Incorect signers parameters.");
+            address signer_ = typeHash_.recover(v_[i], r_[i], s_[i]);
+            stampInfo.signers.add(signer_);
+            _signersHistory[signer_].add(hash_);
         }
+
+        require(
+            stampInfo.signers.length() == signersCount_,
+            "TimeStamping: Incorect signers parameters."
+        );
 
         for (uint256 i = 0; i < signersCount_; i++) {
-            _signersHistory[signers_[i]].push(hash_);
+            require(
+                stampInfo.signers.contains(signers_[i]),
+                "TimeStamping: Incorect signers parameters."
+            );
         }
 
-        _history[hash_] = TimeStampInfo(block.timestamp, signers_);
-        emit TimeStampCreated(hash_, signers_);
+        emit StampCreated(hash_, block.timestamp, signers_);
     }
 
-    function getTimeStamp(
+    function getStampInfo(
         bytes32 hash_
-    ) external view override returns (TimeStampInfo memory) {
-        require(_history[hash_].timeStamp != 0, "TimeStamping: Hash is not existing");
-        return (_history[hash_]);
+    ) external view override returns (uint256, address[] memory) {
+        return (_history[hash_].timestamp, _history[hash_].signers.values());
     }
 
     function getHashesByUserAddress(
         address user_
     ) external view override returns (bytes32[] memory) {
-        require(_signersHistory[user_].length != 0, "TimeStamping: User has not stamps");
-        return _signersHistory[user_];
+        return _signersHistory[user_].values();
     }
 }
