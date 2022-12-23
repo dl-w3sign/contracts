@@ -43,7 +43,7 @@ interface ITimeStamping {
 
     /**
      * @notice Function for obtain time stamp and its signers
-     * @param hash_ a hash for time stamp
+     * @param hash_ a hash of time stamp
      * @return timestamp a time stamp
      * @return signers an array of the signers
      */
@@ -53,10 +53,18 @@ interface ITimeStamping {
 
     /**
      * @notice Function for obtain array of hashes that user signed
-     * @param user_ a address of user
+     * @param user_ an address of user
      * @return hashes an array of hashes signed by user
      */
     function getHashesByUserAddress(
         address user_
     ) external view returns (bytes32[] memory hashes);
+
+    /**
+     * @notice Function to check if a user signed a hash
+     * @param user_ an address of a user
+     * @param hash_ a hash of time stamp
+     * @return true if a user signed a hash, false - otherwise
+     */
+    function isUserSignedHash(address user_, bytes32 hash_) external view returns (bool);
 }

@@ -75,4 +75,11 @@ contract TimeStamping is ITimeStamping, EIP712 {
     ) external view override returns (bytes32[] memory) {
         return _signersHistory[user_].values();
     }
+
+    function isUserSignedHash(
+        address user_,
+        bytes32 hash_
+    ) external view override returns (bool) {
+        return _signersHistory[user_].contains(hash_);
+    }
 }

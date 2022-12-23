@@ -154,4 +154,18 @@ describe("Time Stamping", () => {
       assert.deepEqual(await timeStamping.getHashesByUserAddress(USER2), [HASH2]);
     });
   });
+
+  describe("isUserSignedHash()", () => {
+    beforeEach("setup", async () => {
+      let sig1 = signCreate(USER1_PRIVATE_KEY, HASH1);
+      await timeStamping.createStamp(HASH1, [USER1], [sig1.r], [sig1.s], [sig1.v]);
+    });
+
+    it("should return true if user has signed a hash", async () => {
+      assert.isTrue(await timeStamping.isUserSignedHash(USER1, HASH1));
+    });
+    it("should return false if user has not signed a hash", async () => {
+      assert.isFalse(await timeStamping.isUserSignedHash(USER1, HASH2));
+    });
+  });
 });
