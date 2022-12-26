@@ -2,54 +2,83 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 /**
- * @notice The Iime Stamping contract is used to store time stamps of documents.
+ * @notice The Time Stamping contract is used to store timestamps of documents.
  */
 interface ITimeStamping {
     /**
-     * @notice A structure that stores information about time stamp
-     * @param timestamp a time stamp
-     * @param lastCumulativeSum an array of signers
+     * @notice A structure that stores information about timestamp
+     * @param timestamp a timestamp
+     * @param usersSigned a number of users who already signed
+     * @param signers an array of sEigners
      */
     struct StampInfo {
         uint256 timestamp;
+        uint256 usersSigned;
         EnumerableSet.AddressSet signers;
     }
 
     /**
-     * @notice The event that is emitted during the adding new time stamps
-     * @param hash a hash of the added time stamp
-     * @param timestamp a time stamp
+     * @notice A structure that stores detailed information about timestamp
+     * @param timestamp a timestamp
+     * @param usersToSign a total number of users
+     * @param usersSigned a number of users who already signed
+     * @param hash a hash of timestamp
+     * @param signers an array of signers
+     */
+    struct DetailedStampInfo {
+        uint256 timestamp;
+        uint256 usersToSign;
+        uint256 usersSigned;
+        bytes32 hash;
+        address[] signers;
+    }
+
+    /**
+     * @notice The event that is emitted during the adding new timestamps
+     * @param hash a hash of the added timestamp
+     * @param timestamp a timestamp
      * @param signers an array of the signers
      */
     event StampCreated(bytes32 indexed hash, uint256 timestamp, address[] signers);
 
     /**
-     * @notice Function for create new time stamp
-     * @param hash_ a new hash for time stamp
-     * @param signers_ an array of signers
-     * @param r_ an array of r parameters of the ECDSA signature
-     * @param s_ an array of s parameters of the ECDSA signature
-     * @param v_ an array of v parameters of the ECDSA signature
+     * @notice The event that is emitted during the signing stamp by user
+     * @param hash a hash
+     * @param signer a address of the signer
      */
-    function createStamp(
-        bytes32 hash_,
-        address[] calldata signers_,
-        bytes32[] calldata r_,
-        bytes32[] calldata s_,
-        uint8[] calldata v_
-    ) external;
+    event StampSigned(bytes32 indexed hash, address indexed signer);
 
     /**
-     * @notice Function for obtain time stamp and its signers
-     * @param hash_ a hash of time stamp
-     * @return timestamp a time stamp
-     * @return signers an array of the signers
+     * @notice Function for create new timestamp
+     * @param hash_ a new hash for timestamp
+     * @param signers_ an array of signers
      */
-    function getStampInfo(
-        bytes32 hash_
-    ) external view returns (uint256 timestamp, address[] memory signers);
+    function createStamp(bytes32 hash_, address[] calldata signers_) external;
+
+    /**
+     * @notice Function for sign existing timestamp
+     * @param hash_ an existing hash
+     */
+    function sign(bytes32 hash_) external;
+
+    /**
+     * @notice Function for obtain information about hashes
+     * @param hashes_ hashes of timestamps
+     * @return detailedStampsInfo_ an array of informations about hashes
+     */
+    function getStampsInfo(
+        bytes32[] calldata hashes_
+    ) external view returns (DetailedStampInfo[] memory detailedStampsInfo_);
+
+    /**
+     * @notice Function for obtain status of stamp
+     * @param hash_ a hash of timestamp
+     * @return true if all users signed a hash, false - otherwise
+     */
+    function getStampStatus(bytes32 hash_) external view returns (bool);
 
     /**
      * @notice Function for obtain array of hashes that user signed
@@ -59,12 +88,4 @@ interface ITimeStamping {
     function getHashesByUserAddress(
         address user_
     ) external view returns (bytes32[] memory hashes);
-
-    /**
-     * @notice Function to check if a user signed a hash
-     * @param user_ an address of a user
-     * @param hash_ a hash of time stamp
-     * @return true if a user signed a hash, false - otherwise
-     */
-    function isUserSignedHash(address user_, bytes32 hash_) external view returns (bool);
 }

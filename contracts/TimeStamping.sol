@@ -7,79 +7,70 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import "./interfaces/ITimeStamping.sol";
 
-contract TimeStamping is ITimeStamping, EIP712 {
+contract TimeStamping is ITimeStamping {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
-    using ECDSA for bytes32;
-
-    bytes32 internal constant _CREATE_TYPEHASH = keccak256("Create(bytes32 hash)");
 
     mapping(bytes32 => StampInfo) internal _history;
     mapping(address => EnumerableSet.Bytes32Set) internal _signersHistory;
 
-    constructor() EIP712("TimeStamping", "1") {}
-
-    function createStamp(
-        bytes32 hash_,
-        address[] calldata signers_,
-        bytes32[] calldata r_,
-        bytes32[] calldata s_,
-        uint8[] calldata v_
-    ) external override {
+    function createStamp(bytes32 hash_, address[] calldata signers_) external override {
         require(_history[hash_].timestamp == 0, "TimeStamping: Hash collision.");
-
-        uint256 signersCount_ = signers_.length;
-        require(
-            signersCount_ > 0 &&
-                signersCount_ == r_.length &&
-                signersCount_ == s_.length &&
-                signersCount_ == v_.length,
-            "TimeStamping: Incorect parameters length."
-        );
+        require(signers_.length > 0, "TimeStamping: Incorect signers count.");
 
         StampInfo storage stampInfo = _history[hash_];
         stampInfo.timestamp = block.timestamp;
 
-        bytes32 typeHash_ = _hashTypedDataV4(
-            keccak256(abi.encode(_CREATE_TYPEHASH, hash_))
-        );
-        for (uint256 i = 0; i < signersCount_; i++) {
-            address signer_ = typeHash_.recover(v_[i], r_[i], s_[i]);
-            stampInfo.signers.add(signer_);
-            _signersHistory[signer_].add(hash_);
-        }
-
-        require(
-            stampInfo.signers.length() == signersCount_,
-            "TimeStamping: Incorect signers parameters."
-        );
-
-        for (uint256 i = 0; i < signersCount_; i++) {
-            require(
-                stampInfo.signers.contains(signers_[i]),
-                "TimeStamping: Incorect signers parameters."
-            );
+        for (uint256 i = 0; i < signers_.length; i++) {
+            if (signers_[i] == msg.sender) {
+                this.sign(hash_);
+            }
+            stampInfo.signers.add(signers_[i]);
         }
 
         emit StampCreated(hash_, block.timestamp, signers_);
     }
 
-    function getStampInfo(
-        bytes32 hash_
-    ) external view override returns (uint256, address[] memory) {
-        return (_history[hash_].timestamp, _history[hash_].signers.values());
+    function sign(bytes32 hash_) external override {
+        StampInfo storage stampInfo = _history[hash_];
+        require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
+        require(
+            stampInfo.signers.contains(msg.sender),
+            "TimeStamping: User is not admitted."
+        );
+        require(
+            _signersHistory[msg.sender].add(hash_),
+            "TimeStamping: User has signed already."
+        );
+        stampInfo.usersSigned += 1;
+
+        emit StampSigned(hash_, msg.sender);
+    }
+
+    function getStampsInfo(
+        bytes32[] calldata hashes_
+    ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
+        detailedStampsInfo_ = new DetailedStampInfo[](hashes_.length);
+        for (uint256 i = 0; i < hashes_.length; i++) {
+            StampInfo storage stampInfo = _history[hashes_[i]];
+
+            detailedStampsInfo_[i] = DetailedStampInfo(
+                stampInfo.timestamp,
+                stampInfo.signers.length(),
+                stampInfo.usersSigned,
+                hashes_[i],
+                stampInfo.signers.values()
+            );
+        }
+    }
+
+    function getStampStatus(bytes32 hash_) external view override returns (bool) {
+        return _history[hash_].usersSigned == _history[hash_].signers.length();
     }
 
     function getHashesByUserAddress(
         address user_
     ) external view override returns (bytes32[] memory) {
         return _signersHistory[user_].values();
-    }
-
-    function isUserSignedHash(
-        address user_,
-        bytes32 hash_
-    ) external view override returns (bool) {
-        return _signersHistory[user_].contains(hash_);
     }
 }
