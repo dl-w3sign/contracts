@@ -22,10 +22,12 @@ contract TimeStamping is ITimeStamping {
         stampInfo.timestamp = block.timestamp;
 
         for (uint256 i = 0; i < signers_.length; i++) {
-            if (signers_[i] == msg.sender) {
-                this.sign(hash_);
-            }
             stampInfo.signers.add(signers_[i]);
+            if (signers_[i] == msg.sender) {
+                _signersHistory[msg.sender].add(hash_);
+                stampInfo.usersSigned += 1;
+                emit StampSigned(hash_, msg.sender);
+            }
         }
 
         emit StampCreated(hash_, block.timestamp, signers_);
