@@ -44,13 +44,9 @@ describe("Time Stamping", () => {
       await truffleAssert.reverts(timeStamping.createStamp(HASH1, []), "TimeStamping: Incorect signers count.");
     });
 
-    // it("should revert signers are repeates", async () => {
-    //   let sig = signCreate(USER1_PRIVATE_KEY, HASH1);
-    //   await truffleAssert.reverts(
-    //     timeStamping.createStamp(HASH1, [USER1, USER1], [sig.r, sig.r], [sig.s, sig.s], [sig.v, sig.v]),
-    //     "TimeStamping: Incorect signers parameters."
-    //   );
-    // });
+    it("should revert if signer is repeates", async () => {
+      await truffleAssert.reverts(timeStamping.createStamp(HASH1, [USER1, USER1]), "TimeStamping: Incorect signers.");
+    });
 
     it("should correctly create time stamp", async () => {
       let txReceipt = await timeStamping.createStamp(HASH1, [USER1]);

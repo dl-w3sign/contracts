@@ -11,41 +11,48 @@ contract TimeStamping is ITimeStamping {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    mapping(bytes32 => StampInfo) internal _history;
-    mapping(address => EnumerableSet.Bytes32Set) internal _signersHistory;
+    mapping(bytes32 => StampInfo) internal stamps_;
+    mapping(address => EnumerableSet.Bytes32Set) internal _signersHashes;
 
     function createStamp(bytes32 hash_, address[] calldata signers_) external override {
-        require(_history[hash_].timestamp == 0, "TimeStamping: Hash collision.");
+        StampInfo storage stampInfo = stamps_[hash_];
+        require(stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
         require(signers_.length > 0, "TimeStamping: Incorect signers count.");
 
-        StampInfo storage stampInfo = _history[hash_];
         stampInfo.timestamp = block.timestamp;
 
         for (uint256 i = 0; i < signers_.length; i++) {
-            stampInfo.signers.add(signers_[i]);
-            if (signers_[i] == msg.sender) {
-                _signersHistory[msg.sender].add(hash_);
-                stampInfo.usersSigned += 1;
-                emit StampSigned(hash_, msg.sender);
-            }
+            require(
+                stampInfo.signers.add(signers_[i]),
+                "TimeStamping: Incorect signers."
+            );
+        }
+
+        if (stampInfo.signers.contains(msg.sender)) {
+            _sign(hash_);
         }
 
         emit StampCreated(hash_, block.timestamp, signers_);
     }
 
     function sign(bytes32 hash_) external override {
-        StampInfo storage stampInfo = _history[hash_];
+        StampInfo storage stampInfo = stamps_[hash_];
         require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
         require(
             stampInfo.signers.contains(msg.sender),
             "TimeStamping: User is not admitted."
         );
         require(
-            _signersHistory[msg.sender].add(hash_),
+            !_signersHashes[msg.sender].contains(hash_),
             "TimeStamping: User has signed already."
         );
-        stampInfo.usersSigned += 1;
 
+        _sign(hash_);
+    }
+
+    function _sign(bytes32 hash_) internal {
+        _signersHashes[msg.sender].add(hash_);
+        stamps_[hash_].usersSigned += 1;
         emit StampSigned(hash_, msg.sender);
     }
 
@@ -53,8 +60,9 @@ contract TimeStamping is ITimeStamping {
         bytes32[] calldata hashes_
     ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
         detailedStampsInfo_ = new DetailedStampInfo[](hashes_.length);
+
         for (uint256 i = 0; i < hashes_.length; i++) {
-            StampInfo storage stampInfo = _history[hashes_[i]];
+            StampInfo storage stampInfo = stamps_[hashes_[i]];
 
             detailedStampsInfo_[i] = DetailedStampInfo(
                 stampInfo.timestamp,
@@ -67,12 +75,12 @@ contract TimeStamping is ITimeStamping {
     }
 
     function getStampStatus(bytes32 hash_) external view override returns (bool) {
-        return _history[hash_].usersSigned == _history[hash_].signers.length();
+        return stamps_[hash_].usersSigned == stamps_[hash_].signers.length();
     }
 
     function getHashesByUserAddress(
         address user_
     ) external view override returns (bytes32[] memory) {
-        return _signersHistory[user_].values();
+        return _signersHashes[user_].values();
     }
 }
