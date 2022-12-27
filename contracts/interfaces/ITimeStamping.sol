@@ -52,6 +52,11 @@ interface ITimeStamping {
     event StampSigned(bytes32 indexed hash, address indexed signer);
 
     /**
+     * @notice Function for initial initialization of contract parameters
+     */
+    function __TimeStamping_init() external;
+
+    /**
      * @notice Function for create new timestamp
      * @param hash_ a new hash for timestamp
      * @param signers_ an array of signers

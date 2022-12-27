@@ -8,6 +8,7 @@ const { keccak256 } = require("@ethersproject/keccak256");
 const { toUtf8Bytes } = require("@ethersproject/strings");
 
 const TimeStamping = artifacts.require("TimeStamping");
+const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
 
 describe("Time Stamping", () => {
   const reverter = new Reverter();
@@ -23,15 +24,49 @@ describe("Time Stamping", () => {
 
   before("setup", async () => {
     await setTime(123);
+
     USER1 = await accounts(0);
     USER2 = await accounts(1);
     USER3 = await accounts(2);
-    timeStamping = await TimeStamping.new();
+
+    const _timeStampingImpl = await TimeStamping.new();
+    const _timeStampingProxy = await PublicERC1967Proxy.new(_timeStampingImpl.address, "0x");
+    timeStamping = await TimeStamping.at(_timeStampingProxy.address);
+    await timeStamping.__TimeStamping_init();
+
     await reverter.snapshot();
   });
 
   afterEach("revert", async () => {
     await reverter.revert();
+  });
+
+  describe("creation", () => {
+    it("should get exception if try to init again", async () => {
+      await truffleAssert.reverts(timeStamping.__TimeStamping_init(), "Initializable: contract is already initialized");
+    });
+  });
+
+  describe("TimeStamping upgradability", () => {
+    it("should correctly upgrade to new impl", async () => {
+      const _newTimeStampingImpl = await TimeStamping.new();
+
+      await timeStamping.upgradeTo(_newTimeStampingImpl.address);
+
+      assert.equal(
+        await (await PublicERC1967Proxy.at(timeStamping.address)).implementation(),
+        _newTimeStampingImpl.address
+      );
+    });
+
+    it("should get exception if nonowner try to upgrade", async () => {
+      const _newTimeStampingImpl = await TimeStamping.new();
+
+      await truffleAssert.reverts(
+        timeStamping.upgradeTo(_newTimeStampingImpl.address, { from: USER2 }),
+        "Ownable: caller is not the owner"
+      );
+    });
   });
 
   describe("createStamp()", () => {

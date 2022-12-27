@@ -4,15 +4,21 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "./interfaces/ITimeStamping.sol";
 
-contract TimeStamping is ITimeStamping {
+contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     mapping(bytes32 => StampInfo) internal stamps_;
     mapping(address => EnumerableSet.Bytes32Set) internal _signersHashes;
+
+    function __TimeStamping_init() external override initializer {
+        __Ownable_init();
+    }
 
     function createStamp(bytes32 hash_, address[] calldata signers_) external override {
         StampInfo storage stampInfo = stamps_[hash_];
@@ -50,12 +56,6 @@ contract TimeStamping is ITimeStamping {
         _sign(hash_);
     }
 
-    function _sign(bytes32 hash_) internal {
-        _signersHashes[msg.sender].add(hash_);
-        stamps_[hash_].usersSigned += 1;
-        emit StampSigned(hash_, msg.sender);
-    }
-
     function getStampsInfo(
         bytes32[] calldata hashes_
     ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
@@ -83,4 +83,12 @@ contract TimeStamping is ITimeStamping {
     ) external view override returns (bytes32[] memory) {
         return _signersHashes[user_].values();
     }
+
+    function _sign(bytes32 hash_) internal {
+        _signersHashes[msg.sender].add(hash_);
+        stamps_[hash_].usersSigned += 1;
+        emit StampSigned(hash_, msg.sender);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
