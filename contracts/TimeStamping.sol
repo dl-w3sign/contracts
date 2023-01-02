@@ -91,11 +91,14 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         emit StampSigned(hash_, msg.sender);
     }
 
-    function _getSignersAlready(bytes32 hash_, StampInfo storage stampInfo_) internal view returns (address[] memory signersAlready_) {
+    function _getSignersAlready(
+        bytes32 hash_,
+        StampInfo storage stampInfo_
+    ) internal view returns (address[] memory signersAlready_) {
         signersAlready_ = new address[](stampInfo_.usersSigned);
         uint256 index_ = 0;
-        for(uint256 i = 0; index_ < stampInfo_.usersSigned; i++){
-            if(_signersHashes[stampInfo_.signers.at(i)].contains(hash_)){
+        for (uint256 i = 0; index_ < stampInfo_.usersSigned; i++) {
+            if (_signersHashes[stampInfo_.signers.at(i)].contains(hash_)) {
                 signersAlready_[index_++] = stampInfo_.signers.at(i);
             }
         }
