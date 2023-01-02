@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 /**
  * @notice The Time Stamping contract is used to store timestamps of documents.
@@ -12,12 +11,14 @@ interface ITimeStamping {
      * @notice A structure that stores information about timestamp
      * @param timestamp a timestamp
      * @param usersSigned a number of users who already signed
-     * @param signers an array of sEigners
+     * @param signers an array of signers
+     * @param signersSigned an array of signers, who already signed 
      */
     struct StampInfo {
         uint256 timestamp;
         uint256 usersSigned;
         EnumerableSet.AddressSet signers;
+        EnumerableSet.AddressSet signersSigned;
     }
 
     /**
@@ -26,7 +27,8 @@ interface ITimeStamping {
      * @param usersToSign a total number of users
      * @param usersSigned a number of users who already signed
      * @param hash a hash of timestamp
-     * @param signers an array of signers
+     * @param allSigners an array of all signers
+     * @param alreadySigners an array of signers who allready have signed
      */
     struct DetailedStampInfo {
         uint256 timestamp;
@@ -34,6 +36,7 @@ interface ITimeStamping {
         uint256 usersSigned;
         bytes32 hash;
         address[] signers;
+        address[] alreadySigners;
     }
 
     /**

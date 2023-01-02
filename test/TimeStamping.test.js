@@ -140,12 +140,14 @@ describe("Time Stamping", () => {
       assert.equal(timeStampsInfo[0].usersSigned, 1);
       assert.equal(timeStampsInfo[0].hash, HASH1);
       assert.deepEqual(timeStampsInfo[0].signers, [USER1]);
+      assert.deepEqual(timeStampsInfo[0].alreadySigners, [USER1]);
 
       assert.equal(timeStampsInfo[1].timestamp, timestamp2);
       assert.equal(timeStampsInfo[1].usersToSign, 2);
       assert.equal(timeStampsInfo[1].usersSigned, 1);
       assert.equal(timeStampsInfo[1].hash, HASH2);
       assert.deepEqual(timeStampsInfo[1].signers, [USER1, USER2]);
+      assert.deepEqual(timeStampsInfo[1].alreadySigners, [USER1]);
     });
   });
 

@@ -69,7 +69,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
                 stampInfo.signers.length(),
                 stampInfo.usersSigned,
                 hashes_[i],
-                stampInfo.signers.values()
+                stampInfo.signers.values(),
+                stampInfo.signersSigned.values()
             );
         }
     }
@@ -87,6 +88,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     function _sign(bytes32 hash_) internal {
         _signersHashes[msg.sender].add(hash_);
         stamps_[hash_].usersSigned += 1;
+        stamps_[hash_].signersSigned.add(msg.sender);
         emit StampSigned(hash_, msg.sender);
     }
 
