@@ -24,7 +24,7 @@ interface ITimeStamping {
      * @param timestamp a timestamp
      * @param usersToSign a total number of users
      * @param usersSigned a number of users who already signed
-     * @param hash a hash of timestamp
+     * @param stampHash a hash of timestamp
      * @param signers an array of all signers
      * @param alreadySigners an array of signers who allready have signed
      */
@@ -32,25 +32,25 @@ interface ITimeStamping {
         uint256 timestamp;
         uint256 usersToSign;
         uint256 usersSigned;
-        bytes32 hash;
+        bytes32 stampHash;
         address[] signers;
         address[] alreadySigners;
     }
 
     /**
      * @notice The event that is emitted during the adding new timestamps
-     * @param hash a hash of the added timestamp
+     * @param stampHash a hash of the added timestamp
      * @param timestamp a timestamp
      * @param signers an array of the signers
      */
-    event StampCreated(bytes32 indexed hash, uint256 timestamp, address[] signers);
+    event StampCreated(bytes32 indexed stampHash, uint256 timestamp, address[] signers);
 
     /**
      * @notice The event that is emitted during the signing stamp by user
-     * @param hash a hash
+     * @param stampHash a hash
      * @param signer a address of the signer
      */
-    event StampSigned(bytes32 indexed hash, address indexed signer);
+    event StampSigned(bytes32 indexed stampHash, address indexed signer);
 
     /**
      * @notice Function for initial initialization of contract parameters
@@ -59,39 +59,39 @@ interface ITimeStamping {
 
     /**
      * @notice Function for create new timestamp
-     * @param hash_ a new hash for timestamp
+     * @param stampHash_ a new hash for timestamp
      * @param signers_ an array of signers
      */
-    function createStamp(bytes32 hash_, address[] calldata signers_) external;
+    function createStamp(bytes32 stampHash_, address[] calldata signers_) external;
 
     /**
      * @notice Function for sign existing timestamp
-     * @param hash_ an existing hash
+     * @param stampHash_ an existing hash
      */
-    function sign(bytes32 hash_) external;
+    function sign(bytes32 stampHash_) external;
 
     /**
      * @notice Function for obtain information about hashes
-     * @param hashes_ hashes of timestamps
+     * @param stampHashes_ hashes of timestamps
      * @return detailedStampsInfo_ an array of informations about hashes
      */
     function getStampsInfo(
-        bytes32[] calldata hashes_
+        bytes32[] calldata stampHashes_
     ) external view returns (DetailedStampInfo[] memory detailedStampsInfo_);
 
     /**
      * @notice Function for obtain status of stamp
-     * @param hash_ a hash of timestamp
+     * @param stampHash_ a hash of timestamp
      * @return true if all users signed a hash, false - otherwise
      */
-    function getStampStatus(bytes32 hash_) external view returns (bool);
+    function getStampStatus(bytes32 stampHash_) external view returns (bool);
 
     /**
      * @notice Function for obtain array of hashes that user signed
      * @param user_ an address of user
-     * @return hashes an array of hashes signed by user
+     * @return stampHashes an array of hashes signed by user
      */
     function getHashesByUserAddress(
         address user_
-    ) external view returns (bytes32[] memory hashes);
+    ) external view returns (bytes32[] memory stampHashes);
 }

@@ -20,8 +20,11 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         __Ownable_init();
     }
 
-    function createStamp(bytes32 hash_, address[] calldata signers_) external override {
-        StampInfo storage stampInfo = stamps_[hash_];
+    function createStamp(
+        bytes32 stampHash_,
+        address[] calldata signers_
+    ) external override {
+        StampInfo storage stampInfo = stamps_[stampHash_];
         require(stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
         require(signers_.length > 0, "TimeStamping: Incorect signers count.");
 
@@ -35,48 +38,48 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         }
 
         if (stampInfo.signers.contains(msg.sender)) {
-            _sign(hash_);
+            _sign(stampHash_);
         }
 
-        emit StampCreated(hash_, block.timestamp, signers_);
+        emit StampCreated(stampHash_, block.timestamp, signers_);
     }
 
-    function sign(bytes32 hash_) external override {
-        StampInfo storage stampInfo = stamps_[hash_];
+    function sign(bytes32 stampHash_) external override {
+        StampInfo storage stampInfo = stamps_[stampHash_];
         require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
         require(
             stampInfo.signers.contains(msg.sender),
             "TimeStamping: User is not admitted."
         );
         require(
-            !_signersHashes[msg.sender].contains(hash_),
+            !_signersHashes[msg.sender].contains(stampHash_),
             "TimeStamping: User has signed already."
         );
 
-        _sign(hash_);
+        _sign(stampHash_);
     }
 
     function getStampsInfo(
-        bytes32[] calldata hashes_
+        bytes32[] calldata stampHashes_
     ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
-        detailedStampsInfo_ = new DetailedStampInfo[](hashes_.length);
+        detailedStampsInfo_ = new DetailedStampInfo[](stampHashes_.length);
 
-        for (uint256 i = 0; i < hashes_.length; i++) {
-            StampInfo storage stampInfo = stamps_[hashes_[i]];
+        for (uint256 i = 0; i < stampHashes_.length; i++) {
+            StampInfo storage stampInfo = stamps_[stampHashes_[i]];
 
             detailedStampsInfo_[i] = DetailedStampInfo(
                 stampInfo.timestamp,
                 stampInfo.signers.length(),
                 stampInfo.usersSigned,
-                hashes_[i],
+                stampHashes_[i],
                 stampInfo.signers.values(),
-                _getSignersAlready(hashes_[i], stampInfo)
+                _getAlreadySigners(stampHashes_[i], stampInfo)
             );
         }
     }
 
-    function getStampStatus(bytes32 hash_) external view override returns (bool) {
-        return stamps_[hash_].usersSigned == stamps_[hash_].signers.length();
+    function getStampStatus(bytes32 stampHash_) external view override returns (bool) {
+        return stamps_[stampHash_].usersSigned == stamps_[stampHash_].signers.length();
     }
 
     function getHashesByUserAddress(
@@ -85,26 +88,26 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return _signersHashes[user_].values();
     }
 
-    function _sign(bytes32 hash_) internal {
-        _signersHashes[msg.sender].add(hash_);
-        stamps_[hash_].usersSigned += 1;
-        emit StampSigned(hash_, msg.sender);
+    function _sign(bytes32 stampHash_) internal {
+        _signersHashes[msg.sender].add(stampHash_);
+        stamps_[stampHash_].usersSigned += 1;
+        emit StampSigned(stampHash_, msg.sender);
     }
 
-    function _getSignersAlready(
-        bytes32 hash_,
+    function _getAlreadySigners(
+        bytes32 stampHash_,
         StampInfo storage stampInfo_
     ) internal view returns (address[] memory signersSigned_) {
-        uint256 signersCount_ = stampInfo_.usersSigned;
+        uint256 alereadySignersCount_ = stampInfo_.usersSigned;
 
-        signersSigned_ = new address[](signersCount_);
+        signersSigned_ = new address[](alereadySignersCount_);
 
-        uint256 index_ = 0;
+        uint256 index_;
 
-        for (uint256 i = 0; index_ < signersCount_; i++) {
+        for (uint256 i = 0; index_ < alereadySignersCount_; i++) {
             address currentSigner_ = stampInfo_.signers.at(i);
 
-            if (_signersHashes[currentSigner_].contains(hash_)) {
+            if (_signersHashes[currentSigner_].contains(stampHash_)) {
                 signersSigned_[index_++] = currentSigner_;
             }
         }
