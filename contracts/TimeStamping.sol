@@ -7,14 +7,19 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+
 import "./interfaces/ITimeStamping.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableMap for EnumerableMap.Bytes32ToUintMap;
 
     mapping(bytes32 => StampInfo) internal stamps_;
-    mapping(address => EnumerableSet.Bytes32Set) internal _signersHashes;
+
+    mapping(address => mapping(bytes32 => uint256)) internal _signersTimetamps;
+    mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
     function __TimeStamping_init() external override initializer {
         __Ownable_init();
@@ -52,7 +57,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
             "TimeStamping: User is not admitted."
         );
         require(
-            !_signersHashes[msg.sender].contains(stampHash_),
+            !_signersStampHashes[msg.sender].contains(stampHash_),
             "TimeStamping: User has signed already."
         );
 
@@ -66,14 +71,14 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
         for (uint256 i = 0; i < stampHashes_.length; i++) {
             StampInfo storage stampInfo = stamps_[stampHashes_[i]];
+            address[] memory hashSigners_ = stampInfo.signers.values();
 
             detailedStampsInfo_[i] = DetailedStampInfo(
                 stampInfo.timestamp,
-                stampInfo.signers.length(),
+                hashSigners_.length,
                 stampInfo.usersSigned,
                 stampHashes_[i],
-                stampInfo.signers.values(),
-                _getAlreadySigners(stampHashes_[i], stampInfo)
+                _getUsersInfo(stampHashes_[i], hashSigners_)
             );
         }
     }
@@ -85,32 +90,28 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     function getHashesByUserAddress(
         address user_
     ) external view override returns (bytes32[] memory) {
-        return _signersHashes[user_].values();
+        return _signersStampHashes[user_].values();
+    }
+
+    function _getUsersInfo(
+        bytes32 stampHash_,
+        address[] memory users_
+    ) internal view returns (SignerInfo[] memory signerInfo_) {
+        signerInfo_ = new SignerInfo[](users_.length);
+        for (uint256 i = 0; i < users_.length; i++) {
+            address currentUser_ = users_[i];
+            signerInfo_[i] = SignerInfo(
+                currentUser_,
+                _signersTimetamps[currentUser_][stampHash_]
+            );
+        }
     }
 
     function _sign(bytes32 stampHash_) internal {
-        _signersHashes[msg.sender].add(stampHash_);
+        _signersStampHashes[msg.sender].add(stampHash_);
+        _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
         stamps_[stampHash_].usersSigned += 1;
         emit StampSigned(stampHash_, msg.sender);
-    }
-
-    function _getAlreadySigners(
-        bytes32 stampHash_,
-        StampInfo storage stampInfo_
-    ) internal view returns (address[] memory signersSigned_) {
-        uint256 alereadySignersCount_ = stampInfo_.usersSigned;
-
-        signersSigned_ = new address[](alereadySignersCount_);
-
-        uint256 index_;
-
-        for (uint256 i = 0; index_ < alereadySignersCount_; i++) {
-            address currentSigner_ = stampInfo_.signers.at(i);
-
-            if (_signersHashes[currentSigner_].contains(stampHash_)) {
-                signersSigned_[index_++] = currentSigner_;
-            }
-        }
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

@@ -134,21 +134,28 @@ describe("Time Stamping", () => {
       await timeStamping.createStamp(HASH2, [USER1, USER2, USER3]);
       let timestamp2 = await getCurrentBlockTime();
       await timeStamping.sign(HASH2, { from: USER3 });
+      let timestamp3 = await getCurrentBlockTime();
 
       let timeStampsInfo = await timeStamping.getStampsInfo([HASH1, HASH2]);
       assert.equal(timeStampsInfo[0].timestamp, timestamp1);
       assert.equal(timeStampsInfo[0].usersToSign, 1);
       assert.equal(timeStampsInfo[0].usersSigned, 1);
       assert.equal(timeStampsInfo[0].stampHash, HASH1);
-      assert.deepEqual(timeStampsInfo[0].signers, [USER1]);
-      assert.deepEqual(timeStampsInfo[0].alreadySigners, [USER1]);
+      let signersInfo = timeStampsInfo[0].signersInfo;
+      assert.equal(signersInfo[0].signer, USER1);
+      assert.equal(signersInfo[0].signatureTimestamp, timestamp1);
 
       assert.equal(timeStampsInfo[1].timestamp, timestamp2);
       assert.equal(timeStampsInfo[1].usersToSign, 3);
       assert.equal(timeStampsInfo[1].usersSigned, 2);
       assert.equal(timeStampsInfo[1].stampHash, HASH2);
-      assert.deepEqual(timeStampsInfo[1].signers, [USER1, USER2, USER3]);
-      assert.deepEqual(timeStampsInfo[1].alreadySigners, [USER1, USER3]);
+      signersInfo = timeStampsInfo[1].signersInfo;
+      assert.equal(signersInfo[0].signer, USER1);
+      assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
+      assert.equal(signersInfo[1].signer, USER2);
+      assert.equal(signersInfo[1].signatureTimestamp, 0);
+      assert.equal(signersInfo[2].signer, USER3);
+      assert.equal(signersInfo[2].signatureTimestamp, timestamp3);
     });
   });
 

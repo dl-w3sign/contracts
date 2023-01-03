@@ -20,21 +20,29 @@ interface ITimeStamping {
     }
 
     /**
+     * @notice A structure that stores information about signer of certain timestamp
+     * @param signer a signer
+     * @param signatureTimestamp a timestamp of signature
+     */
+    struct SignerInfo {
+        address signer;
+        uint256 signatureTimestamp;
+    }
+
+    /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
      * @param usersToSign a total number of users
      * @param usersSigned a number of users who already signed
      * @param stampHash a hash of timestamp
-     * @param signers an array of all signers
-     * @param alreadySigners an array of signers who allready have signed
+     * @param signersInfo an array with info about users
      */
     struct DetailedStampInfo {
         uint256 timestamp;
         uint256 usersToSign;
         uint256 usersSigned;
         bytes32 stampHash;
-        address[] signers;
-        address[] alreadySigners;
+        SignerInfo[] signersInfo;
     }
 
     /**
