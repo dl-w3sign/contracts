@@ -7,8 +7,12 @@ const setTime = async (time) => {
   await mine();
 };
 
+const getBlockTime = async (block) => {
+  return (await web3.eth.getBlock(block)).timestamp;
+};
+
 const getCurrentBlockTime = async () => {
-  return (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+  return await getBlockTime(await web3.eth.getBlockNumber());
 };
 
 const mine = async (numberOfBlocks = 1) => {
@@ -18,6 +22,7 @@ const mine = async (numberOfBlocks = 1) => {
 };
 
 module.exports = {
+  getBlockTime,
   getCurrentBlockTime,
   setNextBlockTime,
   setTime,

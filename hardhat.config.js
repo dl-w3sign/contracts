@@ -1,7 +1,7 @@
 require("@nomiclabs/hardhat-web3");
 require("@nomiclabs/hardhat-truffle5");
-require("@nomiclabs/hardhat-etherscan");
 require("@typechain/hardhat");
+require("@dlsl/hardhat-migrate");
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
@@ -27,6 +27,7 @@ module.exports = {
   networks: {
     hardhat: {
       initialDate: "1970-01-01T00:00:00Z",
+      chainId: 1,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -71,6 +72,9 @@ module.exports = {
       bsc: `${process.env.BSCSCAN_KEY}`,
       bscTestnet: `${process.env.BSCSCAN_KEY}`,
     },
+  },
+  migrate: {
+    pathToMigrations: "./deploy/",
   },
   mocha: {
     timeout: 1000000,

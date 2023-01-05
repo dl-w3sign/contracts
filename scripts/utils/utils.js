@@ -14,14 +14,9 @@ const accounts = async (index) => {
   return (await web3.eth.getAccounts())[index];
 };
 
-const getCurrentBlockTime = async () => {
-  return (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
-};
-
 module.exports = {
   toBN,
   accounts,
   wei,
   fromWei,
-  getCurrentBlockTime,
 };
