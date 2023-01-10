@@ -10,12 +10,10 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores information about timestamp
      * @param timestamp a timestamp
-     * @param usersSigned a number of users who already signed
      * @param signers an array of signers
      */
     struct StampInfo {
         uint256 timestamp;
-        uint256 usersSigned;
         EnumerableSet.AddressSet signers;
     }
 
@@ -32,15 +30,11 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
-     * @param usersToSign a total number of users
-     * @param usersSigned a number of users who already signed
      * @param stampHash a hash of timestamp
-     * @param signersInfo an array with info about users
+     * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
         uint256 timestamp;
-        uint256 usersToSign;
-        uint256 usersSigned;
         bytes32 stampHash;
         SignerInfo[] signersInfo;
     }
@@ -49,9 +43,8 @@ interface ITimeStamping {
      * @notice The event that is emitted during the adding new timestamps
      * @param stampHash a hash of the added timestamp
      * @param timestamp a timestamp
-     * @param signers an array of the signers
      */
-    event StampCreated(bytes32 indexed stampHash, uint256 timestamp, address[] signers);
+    event StampCreated(bytes32 indexed stampHash, uint256 timestamp);
 
     /**
      * @notice The event that is emitted during the signing stamp by user
@@ -68,9 +61,8 @@ interface ITimeStamping {
     /**
      * @notice Function for create new timestamp
      * @param stampHash_ a new hash for timestamp
-     * @param signers_ an array of signers
      */
-    function createStamp(bytes32 stampHash_, address[] calldata signers_) external;
+    function createStamp(bytes32 stampHash_) external;
 
     /**
      * @notice Function for sign existing timestamp
@@ -86,13 +78,6 @@ interface ITimeStamping {
     function getStampsInfo(
         bytes32[] calldata stampHashes_
     ) external view returns (DetailedStampInfo[] memory detailedStampsInfo_);
-
-    /**
-     * @notice Function for obtain status of stamp
-     * @param stampHash_ a hash of timestamp
-     * @return true if all users signed a hash, false - otherwise
-     */
-    function getStampStatus(bytes32 stampHash_) external view returns (bool);
 
     /**
      * @notice Function for obtain array of hashes that user signed

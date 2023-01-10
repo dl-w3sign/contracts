@@ -22,43 +22,31 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         __Ownable_init();
     }
 
-    function createStamp(
-        bytes32 stampHash_,
-        address[] calldata signers_
-    ) external override {
+    function createStamp(bytes32 stampHash_) external override {
         StampInfo storage stampInfo = stamps_[stampHash_];
+
         require(stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
-        require(signers_.length > 0, "TimeStamping: Incorect signers count.");
 
         stampInfo.timestamp = block.timestamp;
 
-        for (uint256 i = 0; i < signers_.length; i++) {
-            require(
-                stampInfo.signers.add(signers_[i]),
-                "TimeStamping: Incorect signers."
-            );
-        }
-
-        if (stampInfo.signers.contains(msg.sender)) {
-            _sign(stampHash_);
-        }
-
-        emit StampCreated(stampHash_, block.timestamp, signers_);
+        emit StampCreated(stampHash_, block.timestamp);
     }
 
     function sign(bytes32 stampHash_) external override {
         StampInfo storage stampInfo = stamps_[stampHash_];
+
         require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
+
         require(
-            stampInfo.signers.contains(msg.sender),
-            "TimeStamping: User is not admitted."
-        );
-        require(
-            !_signersStampHashes[msg.sender].contains(stampHash_),
+            stampInfo.signers.add(msg.sender),
             "TimeStamping: User has signed already."
         );
 
-        _sign(stampHash_);
+        _signersStampHashes[msg.sender].add(stampHash_);
+
+        _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
+
+        emit StampSigned(stampHash_, msg.sender);
     }
 
     function getStampsInfo(
@@ -72,16 +60,10 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
             detailedStampsInfo_[i] = DetailedStampInfo(
                 stampInfo.timestamp,
-                hashSigners_.length,
-                stampInfo.usersSigned,
                 stampHashes_[i],
                 _getUsersInfo(stampHashes_[i], hashSigners_)
             );
         }
-    }
-
-    function getStampStatus(bytes32 stampHash_) external view override returns (bool) {
-        return stamps_[stampHash_].usersSigned == stamps_[stampHash_].signers.length();
     }
 
     function getHashesByUserAddress(
@@ -102,13 +84,6 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
                 _signersTimetamps[currentUser_][stampHash_]
             );
         }
-    }
-
-    function _sign(bytes32 stampHash_) internal {
-        _signersStampHashes[msg.sender].add(stampHash_);
-        _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
-        stamps_[stampHash_].usersSigned += 1;
-        emit StampSigned(stampHash_, msg.sender);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
