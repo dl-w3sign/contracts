@@ -71,20 +71,40 @@ interface ITimeStamping {
     function sign(bytes32 stampHash_) external;
 
     /**
-     * @notice Function for obtain information about hashes
-     * @param stampHashes_ hashes of timestamps
-     * @return detailedStampsInfo_ an array of informations about hashes
+     * @notice Function for obtain number of signers of timestamp
+     * @param stampHash_ a hash
+     * @return count_ a count of signers
      */
-    function getStampsInfo(
-        bytes32[] calldata stampHashes_
-    ) external view returns (DetailedStampInfo[] memory detailedStampsInfo_);
+    function getStampSignersCount(bytes32 stampHash_) external returns (uint256 count_);
+
+    /**
+     * @notice Function for obtain information about hash
+     * @param stampHash_ hash of timestamps
+     * @return detailedStampInfo_ a structure of informations about hash
+     */
+    function getStampInfo(
+        bytes32 stampHash_
+    ) external view returns (DetailedStampInfo memory detailedStampInfo_);
+
+    /**
+     * @notice Function for obtain information about hash
+     * @param stampHash_ hash of timestamps
+     * @param offset_ an offset for pagination
+     * @param limit_ a maximum number of elements for pagination
+     * @return detailedStampInfo_ aa structure of informations about hash
+     */
+    function getStampInfoWithPagination(
+        bytes32 stampHash_,
+        uint256 offset_,
+        uint256 limit_
+    ) external view returns (DetailedStampInfo memory detailedStampInfo_);
 
     /**
      * @notice Function for obtain array of hashes that user signed
      * @param user_ an address of user
-     * @return stampHashes an array of hashes signed by user
+     * @return stampHashes_ an array of hashes signed by user
      */
     function getHashesByUserAddress(
         address user_
-    ) external view returns (bytes32[] memory stampHashes);
+    ) external view returns (bytes32[] memory stampHashes_);
 }

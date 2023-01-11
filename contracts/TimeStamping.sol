@@ -6,16 +6,21 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Paginator for EnumerableSet.AddressSet;
 
-    mapping(bytes32 => StampInfo) internal stamps_;
+    uint256 MAX_INT = 2 ** 256 - 1;
+
+    mapping(bytes32 => StampInfo) internal _stamps;
 
     mapping(address => mapping(bytes32 => uint256)) internal _signersTimetamps;
+
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
     function __TimeStamping_init() external override initializer {
@@ -23,22 +28,22 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function createStamp(bytes32 stampHash_) external override {
-        StampInfo storage stampInfo = stamps_[stampHash_];
+        StampInfo storage _stampInfo = _stamps[stampHash_];
 
-        require(stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
+        require(_stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
 
-        stampInfo.timestamp = block.timestamp;
+        _stampInfo.timestamp = block.timestamp;
 
         emit StampCreated(stampHash_, block.timestamp);
     }
 
     function sign(bytes32 stampHash_) external override {
-        StampInfo storage stampInfo = stamps_[stampHash_];
+        StampInfo storage _stampInfo = _stamps[stampHash_];
 
-        require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
+        require(_stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
 
         require(
-            stampInfo.signers.add(msg.sender),
+            _stampInfo.signers.add(msg.sender),
             "TimeStamping: User has signed already."
         );
 
@@ -49,27 +54,45 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         emit StampSigned(stampHash_, msg.sender);
     }
 
-    function getStampsInfo(
-        bytes32[] calldata stampHashes_
-    ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
-        detailedStampsInfo_ = new DetailedStampInfo[](stampHashes_.length);
+    function getStampInfo(
+        bytes32 stampHash_
+    ) external view override returns (DetailedStampInfo memory) {
+        return _getStampsInfo(stampHash_, 0, _stamps[stampHash_].signers.length());
+    }
 
-        for (uint256 i = 0; i < stampHashes_.length; i++) {
-            StampInfo storage stampInfo = stamps_[stampHashes_[i]];
-            address[] memory hashSigners_ = stampInfo.signers.values();
-
-            detailedStampsInfo_[i] = DetailedStampInfo(
-                stampInfo.timestamp,
-                stampHashes_[i],
-                _getUsersInfo(stampHashes_[i], hashSigners_)
-            );
-        }
+    function getStampInfoWithPagination(
+        bytes32 stampHash_,
+        uint256 offset_,
+        uint256 limit_
+    ) external view override returns (DetailedStampInfo memory) {
+        return _getStampsInfo(stampHash_, offset_, limit_);
     }
 
     function getHashesByUserAddress(
         address user_
     ) external view override returns (bytes32[] memory) {
         return _signersStampHashes[user_].values();
+    }
+
+    function getStampSignersCount(
+        bytes32 stampHash_
+    ) external view override returns (uint256) {
+        return _stamps[stampHash_].signers.length();
+    }
+
+    function _getStampsInfo(
+        bytes32 stampHash_,
+        uint256 offset_,
+        uint256 limit_
+    ) internal view returns (DetailedStampInfo memory detailedStampInfo_) {
+        StampInfo storage _stampInfo = _stamps[stampHash_];
+
+        return
+            DetailedStampInfo(
+                _stampInfo.timestamp,
+                stampHash_,
+                _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
+            );
     }
 
     function _getUsersInfo(

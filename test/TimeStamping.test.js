@@ -112,33 +112,48 @@ describe("Time Stamping", () => {
   describe("getStampsInfo()", () => {
     it("should return info about provided hashes", async () => {
       await timeStamping.createStamp(HASH1);
-      let timestamp1 = await getCurrentBlockTime();
+      const timestamp1 = await getCurrentBlockTime();
       await timeStamping.sign(HASH1);
-      let timestamp2 = await getCurrentBlockTime();
+      const timestamp2 = await getCurrentBlockTime();
+      await timeStamping.sign(HASH1, { from: USER3 });
+      const timestamp3 = await getCurrentBlockTime();
 
+      let timeStampsInfo = await timeStamping.getStampInfo(HASH1);
+      assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.stampHash, HASH1);
+
+      let signersInfo = timeStampsInfo.signersInfo;
+      assert.equal(signersInfo[0].signer, USER1);
+      assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
+      assert.equal(signersInfo[1].signer, USER3);
+      assert.equal(signersInfo[1].signatureTimestamp, timestamp3);
+    });
+  });
+
+  describe("getStampInfoWithPagination()", () => {
+    it("should return info about provided hashes paying attention to pagination", async () => {
       await timeStamping.createStamp(HASH2);
-      let timestamp3 = await getCurrentBlockTime();
+      const timestamp1 = await getCurrentBlockTime();
       await timeStamping.sign(HASH2);
-      let timestamp4 = await getCurrentBlockTime();
+      const timestamp2 = await getCurrentBlockTime();
       await timeStamping.sign(HASH2, { from: USER3 });
-      let timestamp5 = await getCurrentBlockTime();
+      const timestamp3 = await getCurrentBlockTime();
 
-      let timeStampsInfo = await timeStamping.getStampsInfo([HASH1, HASH2]);
-      assert.equal(timeStampsInfo[0].timestamp, timestamp1);
-      assert.equal(timeStampsInfo[0].stampHash, HASH1);
+      let timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 0, 1);
+      assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.stampHash, HASH2);
 
-      let signersInfo = timeStampsInfo[0].signersInfo;
+      let signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER1);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
 
-      assert.equal(timeStampsInfo[1].timestamp, timestamp3);
-      assert.equal(timeStampsInfo[1].stampHash, HASH2);
+      timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 1, 1);
+      assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.stampHash, HASH2);
 
-      signersInfo = timeStampsInfo[1].signersInfo;
-      assert.equal(signersInfo[0].signer, USER1);
-      assert.equal(signersInfo[0].signatureTimestamp, timestamp4);
-      assert.equal(signersInfo[1].signer, USER3);
-      assert.equal(signersInfo[1].signatureTimestamp, timestamp5);
+      signersInfo = timeStampsInfo.signersInfo;
+      assert.equal(signersInfo[0].signer, USER3);
+      assert.equal(signersInfo[0].signatureTimestamp, timestamp3);
     });
   });
 
@@ -155,6 +170,21 @@ describe("Time Stamping", () => {
 
       assert.deepEqual(await timeStamping.getHashesByUserAddress(USER1), [HASH1, HASH2]);
       assert.deepEqual(await timeStamping.getHashesByUserAddress(USER2), [HASH2]);
+    });
+  });
+
+  describe("getStampSignersCount()", () => {
+    it("should return count of signers properly", async () => {
+      await timeStamping.createStamp(HASH1);
+      await timeStamping.sign(HASH1);
+
+      await timeStamping.createStamp(HASH2);
+      await timeStamping.sign(HASH2);
+      await timeStamping.sign(HASH2, { from: USER2 });
+
+      assert.equal(await timeStamping.getStampSignersCount(HASH1), 1);
+      assert.equal(await timeStamping.getStampSignersCount(HASH2), 2);
+      assert.equal(await timeStamping.getStampSignersCount(HASH3), 0);
     });
   });
 });
