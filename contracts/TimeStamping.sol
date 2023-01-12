@@ -1,87 +1,79 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Paginator for EnumerableSet.AddressSet;
 
-    mapping(bytes32 => StampInfo) internal stamps_;
+    mapping(bytes32 => StampInfo) internal _stamps;
 
     mapping(address => mapping(bytes32 => uint256)) internal _signersTimetamps;
+
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
     function __TimeStamping_init() external override initializer {
         __Ownable_init();
     }
 
-    function createStamp(
-        bytes32 stampHash_,
-        address[] calldata signers_
-    ) external override {
-        StampInfo storage stampInfo = stamps_[stampHash_];
-        require(stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
-        require(signers_.length > 0, "TimeStamping: Incorect signers count.");
+    function createStamp(bytes32 stampHash_, bool isSign_) external override {
+        StampInfo storage _stampInfo = _stamps[stampHash_];
 
-        stampInfo.timestamp = block.timestamp;
+        require(_stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
 
-        for (uint256 i = 0; i < signers_.length; i++) {
-            require(
-                stampInfo.signers.add(signers_[i]),
-                "TimeStamping: Incorect signers."
-            );
-        }
+        _stampInfo.timestamp = block.timestamp;
 
-        if (stampInfo.signers.contains(msg.sender)) {
+        emit StampCreated(stampHash_, block.timestamp);
+
+        if (isSign_) {
             _sign(stampHash_);
         }
-
-        emit StampCreated(stampHash_, block.timestamp, signers_);
     }
 
     function sign(bytes32 stampHash_) external override {
-        StampInfo storage stampInfo = stamps_[stampHash_];
-        require(stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
+        StampInfo storage _stampInfo = _stamps[stampHash_];
+
+        require(_stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
+
         require(
-            stampInfo.signers.contains(msg.sender),
-            "TimeStamping: User is not admitted."
-        );
-        require(
-            !_signersStampHashes[msg.sender].contains(stampHash_),
+            !_stampInfo.signers.contains(msg.sender),
             "TimeStamping: User has signed already."
         );
 
         _sign(stampHash_);
     }
 
-    function getStampsInfo(
-        bytes32[] calldata stampHashes_
-    ) external view override returns (DetailedStampInfo[] memory detailedStampsInfo_) {
-        detailedStampsInfo_ = new DetailedStampInfo[](stampHashes_.length);
-
-        for (uint256 i = 0; i < stampHashes_.length; i++) {
-            StampInfo storage stampInfo = stamps_[stampHashes_[i]];
-            address[] memory hashSigners_ = stampInfo.signers.values();
-
-            detailedStampsInfo_[i] = DetailedStampInfo(
-                stampInfo.timestamp,
-                hashSigners_.length,
-                stampInfo.usersSigned,
-                stampHashes_[i],
-                _getUsersInfo(stampHashes_[i], hashSigners_)
+    function getStampInfo(
+        bytes32 stampHash_
+    ) external view override returns (DetailedStampInfo memory) {
+        return
+            getStampInfoWithPagination(
+                stampHash_,
+                0,
+                _stamps[stampHash_].signers.length()
             );
-        }
     }
 
-    function getStampStatus(bytes32 stampHash_) external view override returns (bool) {
-        return stamps_[stampHash_].usersSigned == stamps_[stampHash_].signers.length();
+    function getStampInfoWithPagination(
+        bytes32 stampHash_,
+        uint256 offset_,
+        uint256 limit_
+    ) public view override returns (DetailedStampInfo memory) {
+        StampInfo storage _stampInfo = _stamps[stampHash_];
+
+        return
+            DetailedStampInfo(
+                _stampInfo.timestamp,
+                stampHash_,
+                _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
+            );
     }
 
     function getHashesByUserAddress(
@@ -90,25 +82,36 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return _signersStampHashes[user_].values();
     }
 
+    function getStampSignersCount(
+        bytes32 stampHash_
+    ) external view override returns (uint256) {
+        return _stamps[stampHash_].signers.length();
+    }
+
+    function _sign(bytes32 stampHash_) internal {
+        _stamps[stampHash_].signers.add(msg.sender);
+
+        _signersStampHashes[msg.sender].add(stampHash_);
+
+        _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
+
+        emit StampSigned(stampHash_, msg.sender);
+    }
+
     function _getUsersInfo(
         bytes32 stampHash_,
         address[] memory users_
     ) internal view returns (SignerInfo[] memory signerInfo_) {
         signerInfo_ = new SignerInfo[](users_.length);
+
         for (uint256 i = 0; i < users_.length; i++) {
             address currentUser_ = users_[i];
+
             signerInfo_[i] = SignerInfo(
                 currentUser_,
                 _signersTimetamps[currentUser_][stampHash_]
             );
         }
-    }
-
-    function _sign(bytes32 stampHash_) internal {
-        _signersStampHashes[msg.sender].add(stampHash_);
-        _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
-        stamps_[stampHash_].usersSigned += 1;
-        emit StampSigned(stampHash_, msg.sender);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

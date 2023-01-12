@@ -10,12 +10,10 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores information about timestamp
      * @param timestamp a timestamp
-     * @param usersSigned a number of users who already signed
      * @param signers an array of signers
      */
     struct StampInfo {
         uint256 timestamp;
-        uint256 usersSigned;
         EnumerableSet.AddressSet signers;
     }
 
@@ -32,15 +30,11 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
-     * @param usersToSign a total number of users
-     * @param usersSigned a number of users who already signed
      * @param stampHash a hash of timestamp
-     * @param signersInfo an array with info about users
+     * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
         uint256 timestamp;
-        uint256 usersToSign;
-        uint256 usersSigned;
         bytes32 stampHash;
         SignerInfo[] signersInfo;
     }
@@ -49,9 +43,8 @@ interface ITimeStamping {
      * @notice The event that is emitted during the adding new timestamps
      * @param stampHash a hash of the added timestamp
      * @param timestamp a timestamp
-     * @param signers an array of the signers
      */
-    event StampCreated(bytes32 indexed stampHash, uint256 timestamp, address[] signers);
+    event StampCreated(bytes32 indexed stampHash, uint256 timestamp);
 
     /**
      * @notice The event that is emitted during the signing stamp by user
@@ -68,9 +61,9 @@ interface ITimeStamping {
     /**
      * @notice Function for create new timestamp
      * @param stampHash_ a new hash for timestamp
-     * @param signers_ an array of signers
+     * @param isSign_  a parameter that shows whether user sign this stamp
      */
-    function createStamp(bytes32 stampHash_, address[] calldata signers_) external;
+    function createStamp(bytes32 stampHash_, bool isSign_) external;
 
     /**
      * @notice Function for sign existing timestamp
@@ -79,27 +72,40 @@ interface ITimeStamping {
     function sign(bytes32 stampHash_) external;
 
     /**
-     * @notice Function for obtain information about hashes
-     * @param stampHashes_ hashes of timestamps
-     * @return detailedStampsInfo_ an array of informations about hashes
+     * @notice Function for obtain number of signers of timestamp
+     * @param stampHash_ a hash
+     * @return count_ a count of signers
      */
-    function getStampsInfo(
-        bytes32[] calldata stampHashes_
-    ) external view returns (DetailedStampInfo[] memory detailedStampsInfo_);
+    function getStampSignersCount(bytes32 stampHash_) external returns (uint256 count_);
 
     /**
-     * @notice Function for obtain status of stamp
-     * @param stampHash_ a hash of timestamp
-     * @return true if all users signed a hash, false - otherwise
+     * @notice Function for obtain information about hash
+     * @param stampHash_ hash of timestamps
+     * @return detailedStampInfo_ a structure of informations about hash
      */
-    function getStampStatus(bytes32 stampHash_) external view returns (bool);
+    function getStampInfo(
+        bytes32 stampHash_
+    ) external view returns (DetailedStampInfo memory detailedStampInfo_);
+
+    /**
+     * @notice Function for obtain information about hash
+     * @param stampHash_ hash of timestamps
+     * @param offset_ an offset for pagination
+     * @param limit_ a maximum number of elements for pagination
+     * @return detailedStampInfo_ aa structure of informations about hash
+     */
+    function getStampInfoWithPagination(
+        bytes32 stampHash_,
+        uint256 offset_,
+        uint256 limit_
+    ) external view returns (DetailedStampInfo memory detailedStampInfo_);
 
     /**
      * @notice Function for obtain array of hashes that user signed
      * @param user_ an address of user
-     * @return stampHashes an array of hashes signed by user
+     * @return stampHashes_ an array of hashes signed by user
      */
     function getHashesByUserAddress(
         address user_
-    ) external view returns (bytes32[] memory stampHashes);
+    ) external view returns (bytes32[] memory stampHashes_);
 }
