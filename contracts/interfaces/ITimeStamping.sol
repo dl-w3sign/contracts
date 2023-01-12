@@ -61,8 +61,9 @@ interface ITimeStamping {
     /**
      * @notice Function for create new timestamp
      * @param stampHash_ a new hash for timestamp
+     * @param isSign_  a parameter that shows whether user sign this stamp
      */
-    function createStamp(bytes32 stampHash_) external;
+    function createStamp(bytes32 stampHash_, bool isSign_) external;
 
     /**
      * @notice Function for sign existing timestamp
