@@ -113,9 +113,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         signersInfo_ = new SignerInfo[](users_.length);
 
         for (uint256 i = 0; i < users_.length; i++) {
-            address currentUser_ = users_[i];
-
-            signersInfo_[i] = getUserInfo(currentUser_, stampHash_);
+            signersInfo_[i] = getUserInfo(users_[i], stampHash_);
         }
     }
 
