@@ -181,12 +181,18 @@ describe("Time Stamping", () => {
     });
   });
 
-  describe("isUserSignedStamp()", () => {
-    it("should correctly return value", async () => {
+  describe("getUserInfo()", () => {
+    it("should correctly return info about a user and a hash", async () => {
       await timeStamping.createStamp(HASH1, true);
+      const timestamp = await getCurrentBlockTime();
 
-      assert.isTrue(await timeStamping.isUserSignedStamp(USER1, HASH1));
-      assert.isFalse(await timeStamping.isUserSignedStamp(USER2, HASH1));
+      let signerInfo = await timeStamping.getUserInfo(USER1, HASH1);
+      assert.equal(signerInfo.signer, USER1);
+      assert.equal(signerInfo.signatureTimestamp, timestamp);
+
+      signerInfo = await timeStamping.getUserInfo(USER2, HASH1);
+      assert.equal(signerInfo.signer, USER2);
+      assert.equal(signerInfo.signatureTimestamp, 0);
     });
   });
 });

@@ -112,13 +112,13 @@ interface ITimeStamping {
     ) external view returns (bytes32[] memory stampHashes_);
 
     /**
-     * @notice Function to check if user signed timestamp
+     * @notice Function to get info about hash and user
      * @param user_ an address of user
      * @param stampHash_ hash of timestamps
-     * @return true if the user has signed timestamp, false - otherwise
+     * @return signerInfo a struct with info about provided hash and signer
      */
-    function isUserSignedStamp(
+    function getUserInfo(
         address user_,
         bytes32 stampHash_
-    ) external view returns (bool);
+    ) external view returns (SignerInfo memory signerInfo);
 }
