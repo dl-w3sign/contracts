@@ -30,11 +30,13 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
+     * @param signersCount a count of signers
      * @param stampHash a hash of timestamp
      * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
         uint256 timestamp;
+        uint256 signersCount;
         bytes32 stampHash;
         SignerInfo[] signersInfo;
     }
@@ -108,4 +110,15 @@ interface ITimeStamping {
     function getHashesByUserAddress(
         address user_
     ) external view returns (bytes32[] memory stampHashes_);
+
+    /**
+     * @notice Function to check if user signed timestamp
+     * @param user_ an address of user
+     * @param stampHash_ hash of timestamps
+     * @return true if the user has signed timestamp, false - otherwise
+     */
+    function isUserSignedStamp(
+        address user_,
+        bytes32 stampHash_
+    ) external view returns (bool);
 }

@@ -116,6 +116,7 @@ describe("Time Stamping", () => {
 
       let timeStampsInfo = await timeStamping.getStampInfo(HASH1);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.signersCount, 2);
       assert.equal(timeStampsInfo.stampHash, HASH1);
 
       let signersInfo = timeStampsInfo.signersInfo;
@@ -135,6 +136,7 @@ describe("Time Stamping", () => {
 
       let timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 0, 1);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.signersCount, 2);
       assert.equal(timeStampsInfo.stampHash, HASH2);
 
       let signersInfo = timeStampsInfo.signersInfo;
@@ -143,6 +145,7 @@ describe("Time Stamping", () => {
 
       timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 1, 1);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
+      assert.equal(timeStampsInfo.signersCount, 2);
       assert.equal(timeStampsInfo.stampHash, HASH2);
 
       signersInfo = timeStampsInfo.signersInfo;
@@ -175,6 +178,15 @@ describe("Time Stamping", () => {
       assert.equal(await timeStamping.getStampSignersCount(HASH1), 1);
       assert.equal(await timeStamping.getStampSignersCount(HASH2), 2);
       assert.equal(await timeStamping.getStampSignersCount(HASH3), 0);
+    });
+  });
+
+  describe("isUserSignedStamp()", () => {
+    it("should correctly return value", async () => {
+      await timeStamping.createStamp(HASH1, true);
+
+      assert.isTrue(await timeStamping.isUserSignedStamp(USER1, HASH1));
+      assert.isFalse(await timeStamping.isUserSignedStamp(USER2, HASH1));
     });
   });
 });

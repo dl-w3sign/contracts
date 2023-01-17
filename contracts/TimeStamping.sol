@@ -71,6 +71,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return
             DetailedStampInfo(
                 _stampInfo.timestamp,
+                _stampInfo.signers.length(),
                 stampHash_,
                 _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
             );
@@ -86,6 +87,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         bytes32 stampHash_
     ) external view override returns (uint256) {
         return _stamps[stampHash_].signers.length();
+    }
+
+    function isUserSignedStamp(
+        address user_,
+        bytes32 stampHash_
+    ) external view override returns (bool) {
+        return _signersStampHashes[user_].contains(stampHash_);
     }
 
     function _sign(bytes32 stampHash_) internal {
