@@ -30,11 +30,13 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
+     * @param signersCount a count of signers
      * @param stampHash a hash of timestamp
      * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
         uint256 timestamp;
+        uint256 signersCount;
         bytes32 stampHash;
         SignerInfo[] signersInfo;
     }
@@ -108,4 +110,15 @@ interface ITimeStamping {
     function getHashesByUserAddress(
         address user_
     ) external view returns (bytes32[] memory stampHashes_);
+
+    /**
+     * @notice Function to get info about hash and user
+     * @param user_ an address of user
+     * @param stampHash_ hash of timestamps
+     * @return signerInfo a struct with info about provided hash and signer
+     */
+    function getUserInfo(
+        address user_,
+        bytes32 stampHash_
+    ) external view returns (SignerInfo memory signerInfo);
 }

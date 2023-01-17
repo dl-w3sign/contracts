@@ -71,6 +71,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return
             DetailedStampInfo(
                 _stampInfo.timestamp,
+                _stampInfo.signers.length(),
                 stampHash_,
                 _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
             );
@@ -88,6 +89,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return _stamps[stampHash_].signers.length();
     }
 
+    function getUserInfo(
+        address user_,
+        bytes32 stampHash_
+    ) public view override returns (SignerInfo memory signerInfo_) {
+        return SignerInfo(user_, _signersTimetamps[user_][stampHash_]);
+    }
+
     function _sign(bytes32 stampHash_) internal {
         _stamps[stampHash_].signers.add(msg.sender);
 
@@ -101,16 +109,11 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     function _getUsersInfo(
         bytes32 stampHash_,
         address[] memory users_
-    ) internal view returns (SignerInfo[] memory signerInfo_) {
-        signerInfo_ = new SignerInfo[](users_.length);
+    ) internal view returns (SignerInfo[] memory signersInfo_) {
+        signersInfo_ = new SignerInfo[](users_.length);
 
         for (uint256 i = 0; i < users_.length; i++) {
-            address currentUser_ = users_[i];
-
-            signerInfo_[i] = SignerInfo(
-                currentUser_,
-                _signersTimetamps[currentUser_][stampHash_]
-            );
+            signersInfo_[i] = getUserInfo(users_[i], stampHash_);
         }
     }
 
