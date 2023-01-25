@@ -6,8 +6,14 @@ const { assert } = require("chai");
 const truffleAssert = require("truffle-assertions");
 const { keccak256 } = require("@ethersproject/keccak256");
 const { toUtf8Bytes } = require("@ethersproject/strings");
+const { artifacts } = require("hardhat");
+const ethers = require("ethers");
+
+const { buildPoseidon } = require("circomlibjs");
+const snarkjs = require("snarkjs");
 
 const TimeStamping = artifacts.require("TimeStamping");
+const Verifier = artifacts.require("Verifier");
 const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
 
 describe("Time Stamping", () => {
@@ -17,10 +23,45 @@ describe("Time Stamping", () => {
   let USER2;
   let USER3;
 
-  const HASH1 = keccak256(toUtf8Bytes("sampletext"));
-  const HASH2 = keccak256(toUtf8Bytes("blabla"));
-  const HASH3 = keccak256(toUtf8Bytes("blwqd wqd wabla"));
+  let HASHSecret1; // poseidon(keccap256("1"))
+  let HASHSecret2; // poseidon(keccap256("2"))
+  let HASHSecret3; // poseidon(keccap256("3"))
+  let HASH1; // poseidon(poseidon(keccap256("1")))
+  let HASH2; // poseidon(poseidon(keccap256("2")))
+  let HASH3; // poseidon(poseidon(keccap256("3")))
+  let HASHProof1;
+  let HASHProof2;
+  let HASHProof3;
+
   let timeStamping;
+  let verifier;
+
+  function p256(n) {
+    let nstr = n.toString(16);
+    while (nstr.length < 64) nstr = "0" + nstr;
+    return `0x${nstr}`;
+  }
+
+  async function generateProofAndHash(hash) {
+    const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+      { hash: hash, msgSender: BigInt(USER1) },
+      "circuits/generated_circuits/hash.wasm",
+      "circuits/generated_circuits/hash_final.zkey"
+    );
+    proof.pi_a.pop();
+    proof.pi_b.pop();
+    proof.pi_c.pop();
+    let resProof = {
+      a: [p256(BigInt(proof.pi_a[0])), p256(BigInt(proof.pi_a[1]))],
+      b: [
+        [p256(BigInt(proof.pi_b[0][1])), p256(BigInt(proof.pi_b[0][0]))],
+        [p256(BigInt(proof.pi_b[1][1])), p256(BigInt(proof.pi_b[1][0]))],
+      ],
+      c: [p256(BigInt(proof.pi_c[0])), p256(BigInt(proof.pi_c[1]))],
+    };
+
+    return [resProof, ethers.utils.hexZeroPad(BigInt(publicSignals[0]), 32)];
+  }
 
   before("setup", async () => {
     await setTime(123);
@@ -29,10 +70,22 @@ describe("Time Stamping", () => {
     USER2 = await accounts(1);
     USER3 = await accounts(2);
 
+    let poseidon = await buildPoseidon();
+    HASHSecret1 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("1")))]));
+    [HASHProof1, HASH1] = await generateProofAndHash(HASHSecret1);
+
+    HASHSecret2 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("2")))]));
+    [HASHProof2, HASH2] = await generateProofAndHash(HASHSecret2);
+
+    HASHSecret3 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("3")))]));
+    [HASHProof3, HASH3] = await generateProofAndHash(HASHSecret3);
+
+    verifier = await Verifier.new();
+
     const _timeStampingImpl = await TimeStamping.new();
     const _timeStampingProxy = await PublicERC1967Proxy.new(_timeStampingImpl.address, "0x");
     timeStamping = await TimeStamping.at(_timeStampingProxy.address);
-    await timeStamping.__TimeStamping_init();
+    await timeStamping.__TimeStamping_init(verifier.address);
 
     await reverter.snapshot();
   });
@@ -43,7 +96,10 @@ describe("Time Stamping", () => {
 
   describe("creation", () => {
     it("should get exception if try to init again", async () => {
-      await truffleAssert.reverts(timeStamping.__TimeStamping_init(), "Initializable: contract is already initialized");
+      await truffleAssert.reverts(
+        timeStamping.__TimeStamping_init(verifier.address),
+        "Initializable: contract is already initialized"
+      );
     });
   });
 
@@ -69,17 +125,79 @@ describe("Time Stamping", () => {
     });
   });
 
+  describe("setVerifier()", () => {
+    it("should correctly change verifier address", async () => {
+      const verifier = await Verifier.new();
+      await timeStamping.setVerifier(verifier.address);
+    });
+
+    it("should get exception if nonowner try to change", async () => {
+      const verifier = await Verifier.new();
+      await truffleAssert.reverts(
+        timeStamping.setVerifier(verifier.address, { from: USER2 }),
+        "Ownable: caller is not the owner"
+      );
+    });
+  });
+
   describe("createStamp()", () => {
     it("should revert if hash already exists", async () => {
-      await timeStamping.createStamp(HASH1, false);
-      await truffleAssert.reverts(timeStamping.createStamp(HASH1, false), "TimeStamping: Hash collision.");
+      await timeStamping.createStamp(HASH1, [USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: Hash collision."
+      );
+    });
+
+    it("should revert if number of signers == 0", async () => {
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [], [HASHProof1.a, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: Incorect signers count."
+      );
+    });
+
+    it("should revert if signer is repeates", async () => {
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [USER2, USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: Incorect signers."
+      );
     });
 
     it("should correctly create time stamp", async () => {
-      const txReceipt = await timeStamping.createStamp(HASH1, false);
+      let txReceipt = await timeStamping.createStamp(HASH1, [USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       assert.equal(txReceipt.receipt.logs[0].event, "StampCreated");
       assert.equal(txReceipt.receipt.logs[0].args.stampHash, HASH1);
       assert.equal(txReceipt.receipt.logs[0].args.timestamp, await getCurrentBlockTime());
+      assert.deepEqual(txReceipt.receipt.logs[0].args.signers, [USER2]);
+
+      txReceipt = await timeStamping.createStamp(HASH2, [USER1, USER2], [HASHProof2.a, HASHProof2.b, HASHProof2.c]);
+      assert.equal(txReceipt.receipt.logs[0].event, "StampCreated");
+      assert.equal(txReceipt.receipt.logs[0].args.stampHash, HASH2);
+      assert.equal(txReceipt.receipt.logs[0].args.timestamp, await getCurrentBlockTime());
+      assert.deepEqual(txReceipt.receipt.logs[0].args.signers, [USER1, USER2]);
+    });
+
+    it("should revert if ZKP is worng", async () => {
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.a]),
+        "TimeStamping: ZKP wrong."
+      );
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [USER2], [HASHProof1.c, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: ZKP wrong."
+      );
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH2, [USER2], [HASHProof1.c, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: ZKP wrong."
+      );
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, [USER2], [HASHProof2.c, HASHProof1.b, HASHProof1.c]),
+        "TimeStamping: ZKP wrong."
+      );
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH2, [USER2], [HASHProof2.c, HASHProof2.b, HASHProof1.c]),
+        "TimeStamping: ZKP wrong."
+      );
     });
   });
 
@@ -88,14 +206,18 @@ describe("Time Stamping", () => {
       await truffleAssert.reverts(timeStamping.sign(HASH1), "TimeStamping: Hash is not exists");
     });
 
-    it("should revert if user has signed already", async () => {
-      await timeStamping.createStamp(HASH1, true);
+    it("should revert if user is not admitted", async () => {
+      await timeStamping.createStamp(HASH1, [USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
+      await truffleAssert.reverts(timeStamping.sign(HASH1), "TimeStamping: User is not admitted.");
+    });
 
+    it("should revert if user has signed already", async () => {
+      await timeStamping.createStamp(HASH1, [USER1, USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       await truffleAssert.reverts(timeStamping.sign(HASH1), "TimeStamping: User has signed already.");
     });
 
     it("should correctly sign the time stamp", async () => {
-      let txReceipt = await timeStamping.createStamp(HASH1, true);
+      let txReceipt = await timeStamping.createStamp(HASH1, [USER1, USER2], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       assert.equal(txReceipt.receipt.logs[1].event, "StampSigned");
       assert.equal(txReceipt.receipt.logs[1].args.stampHash, HASH1);
       assert.equal(txReceipt.receipt.logs[1].args.signer, USER1);
@@ -109,19 +231,20 @@ describe("Time Stamping", () => {
 
   describe("getStampsInfo()", () => {
     it("should return info about provided hashes", async () => {
-      await timeStamping.createStamp(HASH1, true);
+      await timeStamping.createStamp(HASH1, [USER2, USER3], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       const timestamp1 = await getCurrentBlockTime();
       await timeStamping.sign(HASH1, { from: USER3 });
       const timestamp2 = await getCurrentBlockTime();
 
       let timeStampsInfo = await timeStamping.getStampInfo(HASH1);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
-      assert.equal(timeStampsInfo.signersCount, 2);
+      assert.equal(timeStampsInfo.usersToSign, 2);
+      assert.equal(timeStampsInfo.usersSigned, 1);
       assert.equal(timeStampsInfo.stampHash, HASH1);
 
       let signersInfo = timeStampsInfo.signersInfo;
-      assert.equal(signersInfo[0].signer, USER1);
-      assert.equal(signersInfo[0].signatureTimestamp, timestamp1);
+      assert.equal(signersInfo[0].signer, USER2);
+      assert.equal(signersInfo[0].signatureTimestamp, 0);
       assert.equal(signersInfo[1].signer, USER3);
       assert.equal(signersInfo[1].signatureTimestamp, timestamp2);
     });
@@ -129,39 +252,43 @@ describe("Time Stamping", () => {
 
   describe("getStampInfoWithPagination()", () => {
     it("should return info about provided hashes paying attention to pagination", async () => {
-      await timeStamping.createStamp(HASH2, true);
+      await timeStamping.createStamp(HASH1, [USER1, USER2, USER3], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       const timestamp1 = await getCurrentBlockTime();
-      await timeStamping.sign(HASH2, { from: USER3 });
+      await timeStamping.sign(HASH1, { from: USER3 });
       const timestamp2 = await getCurrentBlockTime();
 
-      let timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 0, 1);
+      let timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH1, 0, 1);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
-      assert.equal(timeStampsInfo.signersCount, 2);
-      assert.equal(timeStampsInfo.stampHash, HASH2);
+      assert.equal(timeStampsInfo.usersToSign, 3);
+      assert.equal(timeStampsInfo.usersSigned, 2);
+      assert.equal(timeStampsInfo.stampHash, HASH1);
 
       let signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER1);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp1);
 
-      timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH2, 1, 1);
+      timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH1, 1, 3);
       assert.equal(timeStampsInfo.timestamp, timestamp1);
-      assert.equal(timeStampsInfo.signersCount, 2);
-      assert.equal(timeStampsInfo.stampHash, HASH2);
+      assert.equal(timeStampsInfo.usersToSign, 3);
+      assert.equal(timeStampsInfo.usersSigned, 2);
+      assert.equal(timeStampsInfo.stampHash, HASH1);
 
       signersInfo = timeStampsInfo.signersInfo;
-      assert.equal(signersInfo[0].signer, USER3);
-      assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
+      assert.equal(signersInfo[0].signer, USER2);
+      assert.equal(signersInfo[0].signatureTimestamp, 0);
+      assert.equal(signersInfo[1].signer, USER3);
+      assert.equal(signersInfo[1].signatureTimestamp, timestamp2);
     });
   });
 
   describe("getHashesByUserAddress()", () => {
     it("should return all hashes that user has signed", async () => {
-      await timeStamping.createStamp(HASH1, true);
+      await timeStamping.createStamp(HASH1, [USER1, USER2, USER3], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
 
-      await timeStamping.createStamp(HASH2, true);
+      await timeStamping.createStamp(HASH2, [USER1, USER2], [HASHProof2.a, HASHProof2.b, HASHProof2.c]);
       await timeStamping.sign(HASH2, { from: USER2 });
 
-      await timeStamping.createStamp(HASH3, false);
+      await timeStamping.createStamp(HASH3, [USER3], [HASHProof3.a, HASHProof3.b, HASHProof3.c]);
 
       assert.deepEqual(await timeStamping.getHashesByUserAddress(USER1), [HASH1, HASH2]);
       assert.deepEqual(await timeStamping.getHashesByUserAddress(USER2), [HASH2]);
@@ -170,12 +297,12 @@ describe("Time Stamping", () => {
 
   describe("getStampSignersCount()", () => {
     it("should return count of signers properly", async () => {
-      await timeStamping.createStamp(HASH1, true);
+      await timeStamping.createStamp(HASH1, [USER1, USER2, USER3], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
 
-      await timeStamping.createStamp(HASH2, true);
+      await timeStamping.createStamp(HASH2, [USER1, USER2], [HASHProof2.a, HASHProof2.b, HASHProof2.c]);
       await timeStamping.sign(HASH2, { from: USER2 });
 
-      assert.equal(await timeStamping.getStampSignersCount(HASH1), 1);
+      assert.equal(await timeStamping.getStampSignersCount(HASH1), 3);
       assert.equal(await timeStamping.getStampSignersCount(HASH2), 2);
       assert.equal(await timeStamping.getStampSignersCount(HASH3), 0);
     });
@@ -183,7 +310,7 @@ describe("Time Stamping", () => {
 
   describe("getUserInfo()", () => {
     it("should correctly return info about a user and a hash", async () => {
-      await timeStamping.createStamp(HASH1, true);
+      await timeStamping.createStamp(HASH1, [USER1, USER2, USER3], [HASHProof1.a, HASHProof1.b, HASHProof1.c]);
       const timestamp = await getCurrentBlockTime();
 
       let signerInfo = await timeStamping.getUserInfo(USER1, HASH1);

@@ -10,10 +10,12 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores information about timestamp
      * @param timestamp a timestamp
+     * @param usersSigned a count of users that signed this timestamp
      * @param signers an array of signers
      */
     struct StampInfo {
         uint256 timestamp;
+        uint256 usersSigned;
         EnumerableSet.AddressSet signers;
     }
 
@@ -30,23 +32,38 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores detailed information about timestamp
      * @param timestamp a timestamp
-     * @param signersCount a count of signers
+     * @param usersToSign a total number of users
+     * @param usersSigned a number of users who already signed
      * @param stampHash a hash of timestamp
      * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
         uint256 timestamp;
-        uint256 signersCount;
+        uint256 usersToSign;
+        uint256 usersSigned;
         bytes32 stampHash;
         SignerInfo[] signersInfo;
+    }
+
+    /**
+     * @notice A structure that stores information about ZKP
+     * @param a an array of parameters A for ZKP
+     * @param b a matrix of parameters B for ZKP
+     * @param c an array of parameters C for ZKP
+     */
+    struct ZKPPoints {
+        uint256[2] a;
+        uint256[2][2] b;
+        uint256[2] c;
     }
 
     /**
      * @notice The event that is emitted during the adding new timestamps
      * @param stampHash a hash of the added timestamp
      * @param timestamp a timestamp
+     * @param signers an array of signers
      */
-    event StampCreated(bytes32 indexed stampHash, uint256 timestamp);
+    event StampCreated(bytes32 indexed stampHash, uint256 timestamp, address[] signers);
 
     /**
      * @notice The event that is emitted during the signing stamp by user
@@ -58,14 +75,19 @@ interface ITimeStamping {
     /**
      * @notice Function for initial initialization of contract parameters
      */
-    function __TimeStamping_init() external;
+    function __TimeStamping_init(address verifier_) external;
 
     /**
-     * @notice Function for create new timestamp
+     * @notice Function for create new timestamp with provided signers and approved ZKP
      * @param stampHash_ a new hash for timestamp
-     * @param isSign_  a parameter that shows whether user sign this stamp
+     * @param signers_ an array of signers
+     * @param zkpPoints_ a structure with ZKP points
      */
-    function createStamp(bytes32 stampHash_, bool isSign_) external;
+    function createStamp(
+        bytes32 stampHash_,
+        address[] calldata signers_,
+        ZKPPoints calldata zkpPoints_
+    ) external;
 
     /**
      * @notice Function for sign existing timestamp
@@ -121,4 +143,10 @@ interface ITimeStamping {
         address user_,
         bytes32 stampHash_
     ) external view returns (SignerInfo memory signerInfo);
+
+    /**
+     * @notice Function to set verifier address
+     * @param verifier_ an address of verifier
+     */
+    function setVerifier(address verifier_) external;
 }

@@ -7,11 +7,14 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
+import "./Verifier.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
+
+    address internal _verifier;
 
     mapping(bytes32 => StampInfo) internal _stamps;
 
@@ -19,20 +22,40 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
-    function __TimeStamping_init() external override initializer {
+    function __TimeStamping_init(address verifier_) external override initializer {
         __Ownable_init();
+
+        _verifier = verifier_;
     }
 
-    function createStamp(bytes32 stampHash_, bool isSign_) external override {
+    function createStamp(
+        bytes32 stampHash_,
+        address[] calldata signers_,
+        ZKPPoints calldata zkpPoints_
+    ) external override {
         StampInfo storage _stampInfo = _stamps[stampHash_];
 
         require(_stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
 
+        require(signers_.length > 0, "TimeStamping: Incorect signers count.");
+
+        require(
+            _checkZKP(zkpPoints_, [uint(stampHash_), uint(uint160(msg.sender))]),
+            "TimeStamping: ZKP wrong."
+        );
+
         _stampInfo.timestamp = block.timestamp;
 
-        emit StampCreated(stampHash_, block.timestamp);
+        for (uint256 i = 0; i < signers_.length; i++) {
+            require(
+                _stampInfo.signers.add(signers_[i]),
+                "TimeStamping: Incorect signers."
+            );
+        }
 
-        if (isSign_) {
+        emit StampCreated(stampHash_, block.timestamp, signers_);
+
+        if (_stampInfo.signers.contains(msg.sender)) {
             _sign(stampHash_);
         }
     }
@@ -43,7 +66,12 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         require(_stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
 
         require(
-            !_stampInfo.signers.contains(msg.sender),
+            _stampInfo.signers.contains(msg.sender),
+            "TimeStamping: User is not admitted."
+        );
+
+        require(
+            !_signersStampHashes[msg.sender].contains(stampHash_),
             "TimeStamping: User has signed already."
         );
 
@@ -72,6 +100,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
             DetailedStampInfo(
                 _stampInfo.timestamp,
                 _stampInfo.signers.length(),
+                _stampInfo.usersSigned,
                 stampHash_,
                 _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
             );
@@ -96,8 +125,25 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return SignerInfo(user_, _signersTimetamps[user_][stampHash_]);
     }
 
+    function setVerifier(address verifier_) external onlyOwner {
+        _verifier = verifier_;
+    }
+
+    function _checkZKP(
+        ZKPPoints calldata zkpPoints_,
+        uint256[2] memory input_
+    ) internal view returns (bool) {
+        return
+            Verifier(_verifier).verifyProof(
+                zkpPoints_.a,
+                zkpPoints_.b,
+                zkpPoints_.c,
+                input_
+            );
+    }
+
     function _sign(bytes32 stampHash_) internal {
-        _stamps[stampHash_].signers.add(msg.sender);
+        _stamps[stampHash_].usersSigned += 1;
 
         _signersStampHashes[msg.sender].add(stampHash_);
 
