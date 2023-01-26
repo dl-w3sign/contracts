@@ -2,16 +2,16 @@ pragma circom 2.0.0;
 
 include "../node_modules/circomlib/circuits/poseidon.circom";
 
-/*This circuit template generates poseidon hash by another poseidon hash and msgSender as appendix.*/  
+/*This circuit template generates poseidon hash by another poseidon hash and additionaly expects msgSender for security.*/  
 
 template Hash() {
     signal input hash;
     signal input msgSender;
-    signal output hashOfHashAndMsgSender;
+    signal output hashOfInput;
 
     component poseidon = Poseidon(1);
     poseidon.inputs[0] <== hash;
-    hashOfHashAndMsgSender <== poseidon.out;
+    hashOfInput <== poseidon.out;
 }
 
 component main{public [msgSender]} = Hash();

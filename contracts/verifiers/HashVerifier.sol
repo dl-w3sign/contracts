@@ -212,7 +212,7 @@ library Pairing {
     }
 }
 
-contract Verifier {
+contract HashVerifier {
     using Pairing for *;
     struct VerifyingKey {
         Pairing.G1Point alfa1;

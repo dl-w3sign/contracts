@@ -1,3 +1,3 @@
 module.exports = {
-  skipFiles: ["Verifier.sol"],
+  skipFiles: ["verifiers/HashVerifier.sol"],
 };

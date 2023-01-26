@@ -11,11 +11,13 @@ interface ITimeStamping {
      * @notice A structure that stores information about timestamp
      * @param timestamp a timestamp
      * @param usersSigned a count of users that signed this timestamp
+     * @param isPublic a flag that shows if timestamp is public
      * @param signers an array of signers
      */
     struct StampInfo {
         uint256 timestamp;
         uint256 usersSigned;
+        bool isPublic;
         EnumerableSet.AddressSet signers;
     }
 
@@ -31,6 +33,7 @@ interface ITimeStamping {
 
     /**
      * @notice A structure that stores detailed information about timestamp
+     * @param isPublic a flag that shows if timestamp is public
      * @param timestamp a timestamp
      * @param usersToSign a total number of users
      * @param usersSigned a number of users who already signed
@@ -38,6 +41,7 @@ interface ITimeStamping {
      * @param signersInfo an array with info about signers
      */
     struct DetailedStampInfo {
+        bool isPublic;
         uint256 timestamp;
         uint256 usersToSign;
         uint256 usersSigned;
@@ -80,11 +84,13 @@ interface ITimeStamping {
     /**
      * @notice Function for create new timestamp with provided signers and approved ZKP
      * @param stampHash_ a new hash for timestamp
+     * @param isSigned_ a parameter that shows whether user sign this stamp
      * @param signers_ an array of signers
      * @param zkpPoints_ a structure with ZKP points
      */
     function createStamp(
         bytes32 stampHash_,
+        bool isSigned_,
         address[] calldata signers_,
         ZKPPoints calldata zkpPoints_
     ) external;
