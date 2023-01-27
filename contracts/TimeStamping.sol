@@ -7,11 +7,14 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
+import "./verifiers/HashVerifier.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
+
+    address internal _verifier;
 
     mapping(bytes32 => StampInfo) internal _stamps;
 
@@ -19,20 +22,47 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
-    function __TimeStamping_init() external override initializer {
+    function __TimeStamping_init(address verifier_) external override initializer {
         __Ownable_init();
+
+        _verifier = verifier_;
     }
 
-    function createStamp(bytes32 stampHash_, bool isSign_) external override {
+    function setVerifier(address verifier_) external onlyOwner {
+        _verifier = verifier_;
+    }
+
+    function createStamp(
+        bytes32 stampHash_,
+        bool isSigned_,
+        address[] calldata signers_,
+        ZKPPoints calldata zkpPoints_
+    ) external override {
         StampInfo storage _stampInfo = _stamps[stampHash_];
 
         require(_stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
 
+        require(
+            _checkZKP(zkpPoints_, [uint256(stampHash_), uint256(uint160(msg.sender))]),
+            "TimeStamping: ZKP wrong."
+        );
+
         _stampInfo.timestamp = block.timestamp;
 
-        emit StampCreated(stampHash_, block.timestamp);
+        _stampInfo.isPublic = signers_.length == 0;
 
-        if (isSign_) {
+        for (uint256 i = 0; i < signers_.length; i++) {
+            require(
+                _stampInfo.signers.add(signers_[i]),
+                "TimeStamping: Incorect signers."
+            );
+        }
+
+        emit StampCreated(stampHash_, block.timestamp, signers_);
+
+        if (
+            isSigned_ && (signers_.length == 0 || _stampInfo.signers.contains(msg.sender))
+        ) {
             _sign(stampHash_);
         }
     }
@@ -43,8 +73,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         require(_stampInfo.timestamp != 0, "TimeStamping: Hash is not exists");
 
         require(
-            !_stampInfo.signers.contains(msg.sender),
+            !_signersStampHashes[msg.sender].contains(stampHash_),
             "TimeStamping: User has signed already."
+        );
+
+        require(
+            _stampInfo.isPublic || _stampInfo.signers.contains(msg.sender),
+            "TimeStamping: User is not admitted."
         );
 
         _sign(stampHash_);
@@ -70,8 +105,10 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
         return
             DetailedStampInfo(
+                _stampInfo.isPublic,
                 _stampInfo.timestamp,
-                _stampInfo.signers.length(),
+                _stampInfo.isPublic ? type(uint256).max : _stampInfo.signers.length(),
+                _stampInfo.usersSigned,
                 stampHash_,
                 _getUsersInfo(stampHash_, _stampInfo.signers.part(offset_, limit_))
             );
@@ -97,13 +134,32 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _sign(bytes32 stampHash_) internal {
-        _stamps[stampHash_].signers.add(msg.sender);
+        StampInfo storage _stampInfo = _stamps[stampHash_];
+
+        _stampInfo.usersSigned += 1;
+
+        _stampInfo.signers.add(msg.sender);
 
         _signersStampHashes[msg.sender].add(stampHash_);
 
         _signersTimetamps[msg.sender][stampHash_] = block.timestamp;
 
         emit StampSigned(stampHash_, msg.sender);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function _checkZKP(
+        ZKPPoints calldata zkpPoints_,
+        uint256[2] memory input_
+    ) internal view returns (bool) {
+        return
+            HashVerifier(_verifier).verifyProof(
+                zkpPoints_.a,
+                zkpPoints_.b,
+                zkpPoints_.c,
+                input_
+            );
     }
 
     function _getUsersInfo(
@@ -116,6 +172,4 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
             signersInfo_[i] = getUserInfo(users_[i], stampHash_);
         }
     }
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
