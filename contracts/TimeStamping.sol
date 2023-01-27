@@ -28,6 +28,10 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         _verifier = verifier_;
     }
 
+    function setVerifier(address verifier_) external onlyOwner {
+        _verifier = verifier_;
+    }
+
     function createStamp(
         bytes32 stampHash_,
         bool isSigned_,
@@ -127,10 +131,6 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         bytes32 stampHash_
     ) public view override returns (SignerInfo memory signerInfo_) {
         return SignerInfo(user_, _signersTimetamps[user_][stampHash_]);
-    }
-
-    function setVerifier(address verifier_) external onlyOwner {
-        _verifier = verifier_;
     }
 
     function _sign(bytes32 stampHash_) internal {
