@@ -285,11 +285,11 @@ describe("Time Stamping", () => {
       assert.equal(txReceipt.receipt.logs[0].args.signer, USER2);
     });
   });
-  describe("getHashByBytes()", () => {
+  describe("getStampHashByBytes()", () => {
     it("Should calculate the result hash of file correctly", async () => {
-      assert.equal(await timeStamping.getHashByBytes(fileRaw1), HASH1);
-      assert.equal(await timeStamping.getHashByBytes(fileRaw2), HASH2);
-      assert.equal(await timeStamping.getHashByBytes(fileRaw3), HASH3);
+      assert.equal(await timeStamping.getStampHashByBytes(fileRaw1), HASH1);
+      assert.equal(await timeStamping.getStampHashByBytes(fileRaw2), HASH2);
+      assert.equal(await timeStamping.getStampHashByBytes(fileRaw3), HASH3);
     });
   });
 

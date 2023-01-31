@@ -108,7 +108,7 @@ interface ITimeStamping {
      * @param bytes_ a document provided as bytes
      * @return poseidonHash a hash of document
      */
-    function getHashByBytes(
+    function getStampHashByBytes(
         bytes calldata bytes_
     ) external view returns (bytes32 poseidonHash);
 

@@ -15,8 +15,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
 
-    address internal _verifier;
-    address internal _poseidonHash;
+    HashVerifier internal _verifier;
+    IPoseidonHash internal _poseidonHash;
 
     mapping(bytes32 => StampInfo) internal _stamps;
 
@@ -30,12 +30,12 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     ) external override initializer {
         __Ownable_init();
 
-        _verifier = verifier_;
-        _poseidonHash = poseidonHash_;
+        _verifier = HashVerifier(verifier_);
+        _poseidonHash = IPoseidonHash(poseidonHash_);
     }
 
     function setVerifier(address verifier_) external onlyOwner {
-        _verifier = verifier_;
+        _verifier = HashVerifier(verifier_);
     }
 
     function createStamp(
@@ -91,11 +91,10 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         _sign(stampHash_);
     }
 
-    function getHashByBytes(
+    function getStampHashByBytes(
         bytes calldata bytes_
     ) external view override returns (bytes32) {
-        IPoseidonHash poseidonHash_ = IPoseidonHash(_poseidonHash);
-        return poseidonHash_.poseidon([poseidonHash_.poseidon([keccak256(bytes_)])]);
+        return _poseidonHash.poseidon([_poseidonHash.poseidon([keccak256(bytes_)])]);
     }
 
     function getStampSignersCount(
@@ -166,13 +165,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         ZKPPoints calldata zkpPoints_,
         uint256[2] memory input_
     ) internal view returns (bool) {
-        return
-            HashVerifier(_verifier).verifyProof(
-                zkpPoints_.a,
-                zkpPoints_.b,
-                zkpPoints_.c,
-                input_
-            );
+        return _verifier.verifyProof(zkpPoints_.a, zkpPoints_.b, zkpPoints_.c, input_);
     }
 
     function _getUsersInfo(
