@@ -5,6 +5,8 @@ require("@dlsl/hardhat-migrate");
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
+require("@nomiclabs/hardhat-waffle");
+const { compilePoseidonHash } = require("./compilePoseidonHash");
 
 const dotenv = require("dotenv");
 dotenv.config();
@@ -99,3 +101,8 @@ module.exports = {
     dontOverrideCompile: true & !forceTypechain(),
   },
 };
+
+task("compile").setAction(async () => {
+  await runSuper();
+  compilePoseidonHash();
+});

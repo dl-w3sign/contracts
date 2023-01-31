@@ -78,8 +78,10 @@ interface ITimeStamping {
 
     /**
      * @notice Function for initial initialization of contract parameters
+     * @param verifier_ an address of verifier contract
+     * @param poseidonHash_ an address of poseidon hash contract
      */
-    function __TimeStamping_init(address verifier_) external;
+    function __TimeStamping_init(address verifier_, address poseidonHash_) external;
 
     /**
      * @notice Function for create new timestamp with provided signers and approved ZKP
@@ -102,11 +104,22 @@ interface ITimeStamping {
     function sign(bytes32 stampHash_) external;
 
     /**
+     * @notice Function for obtain hash of document
+     * @param bytes_ a document provided as bytes
+     * @return poseidonHash a hash of document
+     */
+    function getHashByBytes(
+        bytes calldata bytes_
+    ) external view returns (bytes32 poseidonHash);
+
+    /**
      * @notice Function for obtain number of signers of timestamp
      * @param stampHash_ a hash
      * @return count_ a count of signers
      */
-    function getStampSignersCount(bytes32 stampHash_) external returns (uint256 count_);
+    function getStampSignersCount(
+        bytes32 stampHash_
+    ) external view returns (uint256 count_);
 
     /**
      * @notice Function for obtain information about hash

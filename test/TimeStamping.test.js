@@ -5,12 +5,13 @@ const { setTime, getCurrentBlockTime } = require("./helpers/block-helper");
 const { assert } = require("chai");
 const truffleAssert = require("truffle-assertions");
 const { keccak256 } = require("@ethersproject/keccak256");
-const { toUtf8Bytes } = require("@ethersproject/strings");
 const { artifacts } = require("hardhat");
-const ethers = require("ethers");
+const { ethers } = require("hardhat");
 
-const { buildPoseidon } = require("circomlibjs");
+const { buildPoseidon, poseidonContract } = require("circomlibjs");
 const snarkjs = require("snarkjs");
+const { promises } = require("fs");
+const hre = require("hardhat");
 
 const TimeStamping = artifacts.require("TimeStamping");
 const HashVerifier = artifacts.require("HashVerifier");
@@ -23,23 +24,44 @@ describe("Time Stamping", () => {
   let USER2;
   let USER3;
 
-  let HASHSecret1; // poseidon(keccap256("1"))
-  let HASHSecret2; // poseidon(keccap256("2"))
-  let HASHSecret3; // poseidon(keccap256("3"))
-  let HASH1; // poseidon(poseidon(keccap256("1")))
-  let HASH2; // poseidon(poseidon(keccap256("2")))
-  let HASH3; // poseidon(poseidon(keccap256("3")))
+  let HASHSecret1; // poseidon(keccap256(file1))
+  let HASHSecret2; // poseidon(keccap256(file2))
+  let HASHSecret3; // poseidon(keccap256(file3))
+  let HASH1; // poseidon(poseidon(keccap256(file1)))
+  let HASH2; // poseidon(poseidon(keccap256(file2)))
+  let HASH3; // poseidon(poseidon(keccap256(file3)))
   let HASHProof1;
   let HASHProof2;
   let HASHProof3;
 
+  let fileRaw1;
+  let fileRaw2;
+  let fileRaw3;
+
   let timeStamping;
   let verifier;
+  let poseidonHash;
 
   function p256(n) {
     let nstr = n.toString(16);
     while (nstr.length < 64) nstr = "0" + nstr;
     return `0x${nstr}`;
+  }
+
+  async function getPoseidon() {
+    const [deployer] = await ethers.getSigners();
+    const PoseidonHasher = new hre.ethers.ContractFactory(
+      poseidonContract.generateABI(1),
+      poseidonContract.createCode(1),
+      deployer
+    );
+    const poseidonHasher = await PoseidonHasher.deploy();
+    await poseidonHasher.deployed();
+    return poseidonHasher;
+  }
+
+  async function getBytesFromFile(file) {
+    return Buffer.from(await promises.readFile(file));
   }
 
   async function generateProofAndHash(hash) {
@@ -70,22 +92,27 @@ describe("Time Stamping", () => {
     USER2 = await accounts(1);
     USER3 = await accounts(2);
 
+    fileRaw1 = await getBytesFromFile("package.json");
+    fileRaw2 = await getBytesFromFile("hardhat.config.js");
+    fileRaw3 = await getBytesFromFile("README.md");
+
     let poseidon = await buildPoseidon();
-    HASHSecret1 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("1")))]));
+    HASHSecret1 = poseidon.F.toString(poseidon([BigInt(keccak256(fileRaw1))]));
     [HASHProof1, HASH1] = await generateProofAndHash(HASHSecret1);
 
-    HASHSecret2 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("2")))]));
+    HASHSecret2 = poseidon.F.toString(poseidon([BigInt(keccak256(fileRaw2))]));
     [HASHProof2, HASH2] = await generateProofAndHash(HASHSecret2);
 
-    HASHSecret3 = poseidon.F.toString(poseidon([BigInt(keccak256(toUtf8Bytes("3")))]));
+    HASHSecret3 = poseidon.F.toString(poseidon([BigInt(keccak256(fileRaw3))]));
     [HASHProof3, HASH3] = await generateProofAndHash(HASHSecret3);
 
     verifier = await HashVerifier.new();
+    poseidonHash = await getPoseidon();
 
     const _timeStampingImpl = await TimeStamping.new();
     const _timeStampingProxy = await PublicERC1967Proxy.new(_timeStampingImpl.address, "0x");
     timeStamping = await TimeStamping.at(_timeStampingProxy.address);
-    await timeStamping.__TimeStamping_init(verifier.address);
+    await timeStamping.__TimeStamping_init(verifier.address, poseidonHash.address);
 
     await reverter.snapshot();
   });
@@ -97,7 +124,7 @@ describe("Time Stamping", () => {
   describe("creation", () => {
     it("should get exception if try to init again", async () => {
       await truffleAssert.reverts(
-        timeStamping.__TimeStamping_init(verifier.address),
+        timeStamping.__TimeStamping_init(verifier.address, poseidonHash.address),
         "Initializable: contract is already initialized"
       );
     });
@@ -202,6 +229,10 @@ describe("Time Stamping", () => {
         timeStamping.createStamp(HASH2, false, [USER2], [HASHProof2.c, HASHProof2.b, HASHProof1.c]),
         "TimeStamping: ZKP wrong."
       );
+      await truffleAssert.reverts(
+        timeStamping.createStamp(HASH1, false, [USER1], [HASHProof1.a, HASHProof1.b, HASHProof1.c], { from: USER2 }),
+        "TimeStamping: ZKP wrong."
+      );
     });
   });
 
@@ -252,6 +283,13 @@ describe("Time Stamping", () => {
       assert.equal(txReceipt.receipt.logs[0].event, "StampSigned");
       assert.equal(txReceipt.receipt.logs[0].args.stampHash, HASH1);
       assert.equal(txReceipt.receipt.logs[0].args.signer, USER2);
+    });
+  });
+  describe("getHashByBytes()", () => {
+    it("Should calculate the result hash of file correctly", async () => {
+      assert.equal(await timeStamping.getHashByBytes(fileRaw1), HASH1);
+      assert.equal(await timeStamping.getHashByBytes(fileRaw2), HASH2);
+      assert.equal(await timeStamping.getHashByBytes(fileRaw3), HASH3);
     });
   });
 

@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
+import "./interfaces/IPoseidonHash.sol";
 import "./verifiers/HashVerifier.sol";
 
 contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
@@ -15,6 +16,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using Paginator for EnumerableSet.AddressSet;
 
     address internal _verifier;
+    address internal _poseidonHash;
 
     mapping(bytes32 => StampInfo) internal _stamps;
 
@@ -22,10 +24,14 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
-    function __TimeStamping_init(address verifier_) external override initializer {
+    function __TimeStamping_init(
+        address verifier_,
+        address poseidonHash_
+    ) external override initializer {
         __Ownable_init();
 
         _verifier = verifier_;
+        _poseidonHash = poseidonHash_;
     }
 
     function setVerifier(address verifier_) external onlyOwner {
@@ -85,6 +91,19 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         _sign(stampHash_);
     }
 
+    function getHashByBytes(
+        bytes calldata bytes_
+    ) external view override returns (bytes32) {
+        IPoseidonHash poseidonHash_ = IPoseidonHash(_poseidonHash);
+        return poseidonHash_.poseidon([poseidonHash_.poseidon([keccak256(bytes_)])]);
+    }
+
+    function getStampSignersCount(
+        bytes32 stampHash_
+    ) external view override returns (uint256) {
+        return _stamps[stampHash_].signers.length();
+    }
+
     function getStampInfo(
         bytes32 stampHash_
     ) external view override returns (DetailedStampInfo memory) {
@@ -118,12 +137,6 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         address user_
     ) external view override returns (bytes32[] memory) {
         return _signersStampHashes[user_].values();
-    }
-
-    function getStampSignersCount(
-        bytes32 stampHash_
-    ) external view override returns (uint256) {
-        return _stamps[stampHash_].signers.length();
     }
 
     function getUserInfo(
