@@ -11,7 +11,6 @@ module.exports = async (deployer) => {
     await hre.ethers.getSigner()
   );
   const poseidonHasher = await PoseidonHasher.deploy();
-  await poseidonHasher.deployed();
 
   const verifier = await deployer.deploy(HashVerifier);
 
