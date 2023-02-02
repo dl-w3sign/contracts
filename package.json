@@ -1,6 +1,6 @@
 {
   "name": "time-stamping-contracts",
-  "version": "2.0.0",
+  "version": "3.1.1",
   "license": "MIT",
   "author": "Distributed Lab",
   "description": "",
@@ -48,6 +48,7 @@
     "@typechain/web3-v1": "^6.0.1",
     "bignumber.js": "^9.0.1",
     "chai": "^4.3.4",
+    "ethereum-waffle": "^3.4.4",
     "hardhat": "^2.12.2",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-gas-reporter": "^1.0.9",
