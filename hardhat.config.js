@@ -5,7 +5,7 @@ require("@dlsl/hardhat-migrate");
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
-require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-ethers");
 const { compilePoseidonHash } = require("./compilePoseidonHash");
 
 const dotenv = require("dotenv");

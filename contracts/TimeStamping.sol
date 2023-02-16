@@ -142,7 +142,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         address user_,
         bytes32 stampHash_
     ) public view override returns (SignerInfo memory signerInfo_) {
-        return SignerInfo(user_, _signersTimetamps[user_][stampHash_]);
+        StampInfo storage _stampInfo = _stamps[stampHash_];
+        return
+            SignerInfo(
+                user_,
+                _stampInfo.isPublic || _stampInfo.signers.contains(user_),
+                _signersTimetamps[user_][stampHash_]
+            );
     }
 
     function _sign(bytes32 stampHash_) internal {
