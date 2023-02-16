@@ -11,7 +11,6 @@ const { ethers } = require("hardhat");
 const { buildPoseidon, poseidonContract } = require("circomlibjs");
 const snarkjs = require("snarkjs");
 const { promises } = require("fs");
-const hre = require("hardhat");
 
 const TimeStamping = artifacts.require("TimeStamping");
 const HashVerifier = artifacts.require("HashVerifier");
@@ -50,7 +49,7 @@ describe("Time Stamping", () => {
 
   async function getPoseidon() {
     const [deployer] = await ethers.getSigners();
-    const PoseidonHasher = new hre.ethers.ContractFactory(
+    const PoseidonHasher = new ethers.ContractFactory(
       poseidonContract.generateABI(1),
       poseidonContract.createCode(1),
       deployer
