@@ -24,10 +24,12 @@ interface ITimeStamping {
     /**
      * @notice A structure that stores information about signer of certain timestamp
      * @param signer a signer
+     * @param isAddmitted a flag that shows if signer is admitted
      * @param signatureTimestamp a timestamp of signature
      */
     struct SignerInfo {
         address signer;
+        bool isAddmitted;
         uint256 signatureTimestamp;
     }
 
