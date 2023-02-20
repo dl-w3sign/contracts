@@ -109,6 +109,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function withdrawFee(address recipient) external onlyOwner {
+        require(address(this).balance > 0, "TimeStamping: Nothing to withdraw.");
+
         (bool success_, ) = recipient.call{value: address(this).balance}("");
         require(success_, "TimeStamping: Failed to return currency.");
     }
@@ -168,7 +170,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return
             SignerInfo(
                 user_,
-                _stampInfo.isPublic || _stampInfo.signers.contains(user_),
+                !_signersStampHashes[user_].contains(stampHash_) &&
+                    (_stampInfo.isPublic || _stampInfo.signers.contains(user_)),
                 _signersTimetamps[user_][stampHash_]
             );
     }

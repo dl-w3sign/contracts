@@ -1,4 +1,5 @@
 const { accounts, wei, toBN } = require("../scripts/utils/utils.js");
+const { ZERO_ADDR } = require("../scripts/utils/constants.js");
 const Reverter = require("./helpers/reverter");
 const { setTime, getCurrentBlockTime } = require("./helpers/block-helper");
 
@@ -15,6 +16,7 @@ const { promises } = require("fs");
 const TimeStamping = artifacts.require("TimeStamping");
 const HashVerifier = artifacts.require("HashVerifier");
 const PublicERC1967Proxy = artifacts.require("PublicERC1967Proxy");
+const Tester = artifacts.require("Tester");
 
 describe("Time Stamping", () => {
   const reverter = new Reverter();
@@ -40,6 +42,7 @@ describe("Time Stamping", () => {
   let timeStamping;
   let verifier;
   let poseidonHash;
+  let tester;
 
   const fee = wei(0.1);
 
@@ -65,9 +68,9 @@ describe("Time Stamping", () => {
     return Buffer.from(await promises.readFile(file));
   }
 
-  async function generateProofAndHash(hash) {
+  async function generateProofAndHash(hash, user = USER1) {
     const { proof, publicSignals } = await snarkjs.groth16.fullProve(
-      { hash: hash, msgSender: BigInt(USER1) },
+      { hash: hash, msgSender: BigInt(user) },
       "circuits/generated_circuits/hash.wasm",
       "circuits/generated_circuits/hash_final.zkey"
     );
@@ -114,6 +117,8 @@ describe("Time Stamping", () => {
     const _timeStampingProxy = await PublicERC1967Proxy.new(_timeStampingImpl.address, "0x");
     timeStamping = await TimeStamping.at(_timeStampingProxy.address);
     await timeStamping.__TimeStamping_init(fee, verifier.address, poseidonHash.address);
+
+    tester = await Tester.new();
 
     await reverter.snapshot();
   });
@@ -254,6 +259,17 @@ describe("Time Stamping", () => {
       );
     });
 
+    it("should revert if transfer currency failed", async () => {
+      const proof = (await generateProofAndHash(HASHSecret1, tester.address))[0];
+
+      await truffleAssert.reverts(
+        tester.test(timeStamping.address, HASH1, true, [], [proof.a, proof.b, proof.c], {
+          value: fee * 3,
+        }),
+        "TimeStamping: Failed to return currency."
+      );
+    });
+
     it("should revert if fee is not enough", async () => {
       await truffleAssert.reverts(
         timeStamping.createStamp(HASH1, true, [], [HASHProof1.a, HASHProof1.b, HASHProof1.c], { value: 0 }),
@@ -347,7 +363,22 @@ describe("Time Stamping", () => {
   });
 
   describe("withdrawFee()", () => {
+    it("should revert if nothing to withdraw", async () => {
+      await truffleAssert.reverts(timeStamping.withdrawFee(ZERO_ADDR), "TimeStamping: Nothing to withdraw.");
+    });
+
+    it("should revert if transfer currency failed", async () => {
+      await timeStamping.createStamp(HASH1, false, [], [HASHProof1.a, HASHProof1.b, HASHProof1.c], { value: fee });
+
+      await truffleAssert.reverts(
+        timeStamping.withdrawFee(verifier.address),
+        "TimeStamping: Failed to return currency."
+      );
+    });
+
     it("should revert if caller is not owner", async () => {
+      await timeStamping.createStamp(HASH1, false, [], [HASHProof1.a, HASHProof1.b, HASHProof1.c], { value: fee });
+
       await truffleAssert.reverts(timeStamping.withdrawFee(USER2, { from: USER2 }), "Ownable: caller is not the owner");
     });
 
@@ -393,7 +424,7 @@ describe("Time Stamping", () => {
       assert.equal(signersInfo[0].isAddmitted, true);
       assert.equal(signersInfo[0].signatureTimestamp, 0);
       assert.equal(signersInfo[1].signer, USER3);
-      assert.equal(signersInfo[1].isAddmitted, true);
+      assert.equal(signersInfo[1].isAddmitted, false);
       assert.equal(signersInfo[1].signatureTimestamp, timestamp2);
     });
 
@@ -412,7 +443,7 @@ describe("Time Stamping", () => {
 
       let signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER3);
-      assert.equal(signersInfo[0].isAddmitted, true);
+      assert.equal(signersInfo[0].isAddmitted, false);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
     });
   });
@@ -435,7 +466,7 @@ describe("Time Stamping", () => {
 
       let signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER1);
-      assert.equal(signersInfo[0].isAddmitted, true);
+      assert.equal(signersInfo[0].isAddmitted, false);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp1);
 
       timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH1, 1, 3);
@@ -450,7 +481,7 @@ describe("Time Stamping", () => {
       assert.equal(signersInfo[0].isAddmitted, true);
       assert.equal(signersInfo[0].signatureTimestamp, 0);
       assert.equal(signersInfo[1].signer, USER3);
-      assert.equal(signersInfo[1].isAddmitted, true);
+      assert.equal(signersInfo[1].isAddmitted, false);
       assert.equal(signersInfo[1].signatureTimestamp, timestamp2);
     });
 
@@ -469,7 +500,7 @@ describe("Time Stamping", () => {
 
       let signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER1);
-      assert.equal(signersInfo[0].isAddmitted, true);
+      assert.equal(signersInfo[0].isAddmitted, false);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp1);
 
       timeStampsInfo = await timeStamping.getStampInfoWithPagination(HASH1, 1, 3);
@@ -481,7 +512,7 @@ describe("Time Stamping", () => {
 
       signersInfo = timeStampsInfo.signersInfo;
       assert.equal(signersInfo[0].signer, USER3);
-      assert.equal(signersInfo[0].isAddmitted, true);
+      assert.equal(signersInfo[0].isAddmitted, false);
       assert.equal(signersInfo[0].signatureTimestamp, timestamp2);
     });
   });
@@ -530,7 +561,7 @@ describe("Time Stamping", () => {
 
       let signerInfo = await timeStamping.getUserInfo(USER1, HASH1);
       assert.equal(signerInfo.signer, USER1);
-      assert.equal(signerInfo.isAddmitted, true);
+      assert.equal(signerInfo.isAddmitted, false);
       assert.equal(signerInfo.signatureTimestamp, timestamp);
 
       signerInfo = await timeStamping.getUserInfo(USER2, HASH1);
@@ -542,6 +573,13 @@ describe("Time Stamping", () => {
       assert.equal(signerInfo.signer, USER3);
       assert.equal(signerInfo.isAddmitted, false);
       assert.equal(signerInfo.signatureTimestamp, 0);
+
+      await timeStamping.sign(HASH1, { from: USER2 });
+
+      signerInfo = await timeStamping.getUserInfo(USER2, HASH1);
+      assert.equal(signerInfo.signer, USER2);
+      assert.equal(signerInfo.isAddmitted, false);
+      assert.equal(signerInfo.signatureTimestamp, await getCurrentBlockTime());
     });
   });
 });
