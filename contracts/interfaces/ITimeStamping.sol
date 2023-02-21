@@ -80,13 +80,42 @@ interface ITimeStamping {
 
     /**
      * @notice Function for initial initialization of contract parameters
+     * @param fee_ a fee for stamp creation
      * @param verifier_ an address of verifier contract
      * @param poseidonHash_ an address of poseidon hash contract
      */
-    function __TimeStamping_init(address verifier_, address poseidonHash_) external;
+    function __TimeStamping_init(
+        uint256 fee_,
+        address verifier_,
+        address poseidonHash_
+    ) external;
 
     /**
-     * @notice Function for create new timestamp with provided signers and approved ZKP
+     * @notice Function to set verifier address
+     * @param verifier_ an address of verifier
+     */
+    function setVerifier(address verifier_) external;
+
+    /**
+     * @notice Function for set fee for timestamp creation
+     * @param fee_ a fee for timestamp creation
+     */
+    function setFee(uint256 fee_) external;
+
+    /**
+     * @notice Function for obtain fee for timestamp creation
+     * @return fee a fee for timestamp creation
+     */
+    function fee() external view returns (uint256);
+
+    /**
+     * @notice Function for admin to withdraw fee
+     * @param recipient an address of recipient
+     */
+    function withdrawFee(address recipient) external;
+
+    /**
+     * @notice Function for create new timestamp with provided signers and approved ZKP, if fee is paid
      * @param stampHash_ a new hash for timestamp
      * @param isSigned_ a parameter that shows whether user sign this stamp
      * @param signers_ an array of signers
@@ -97,7 +126,7 @@ interface ITimeStamping {
         bool isSigned_,
         address[] calldata signers_,
         ZKPPoints calldata zkpPoints_
-    ) external;
+    ) external payable;
 
     /**
      * @notice Function for sign existing timestamp
@@ -164,10 +193,4 @@ interface ITimeStamping {
         address user_,
         bytes32 stampHash_
     ) external view returns (SignerInfo memory signerInfo);
-
-    /**
-     * @notice Function to set verifier address
-     * @param verifier_ an address of verifier
-     */
-    function setVerifier(address verifier_) external;
 }
