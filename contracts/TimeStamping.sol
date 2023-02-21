@@ -15,6 +15,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
 
+    uint256 public override fee;
+
     HashVerifier internal _verifier;
     IPoseidonHash internal _poseidonHash;
 
@@ -25,11 +27,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => EnumerableSet.Bytes32Set) internal _signersStampHashes;
 
     function __TimeStamping_init(
+        uint256 fee_,
         address verifier_,
         address poseidonHash_
     ) external override initializer {
         __Ownable_init();
 
+        fee = fee_;
         _verifier = HashVerifier(verifier_);
         _poseidonHash = IPoseidonHash(poseidonHash_);
     }
@@ -38,12 +42,25 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         _verifier = HashVerifier(verifier_);
     }
 
+    function setFee(uint256 fee_) external onlyOwner {
+        fee = fee_;
+    }
+
+    function withdrawFee(address recipient) external onlyOwner {
+        require(address(this).balance > 0, "TimeStamping: Nothing to withdraw.");
+
+        (bool success_, ) = recipient.call{value: address(this).balance}("");
+        require(success_, "TimeStamping: Failed to return currency.");
+    }
+
     function createStamp(
         bytes32 stampHash_,
         bool isSigned_,
         address[] calldata signers_,
         ZKPPoints calldata zkpPoints_
-    ) external override {
+    ) external payable override {
+        require(msg.value >= fee, "TimeStamping: Fee is not enough.");
+
         StampInfo storage _stampInfo = _stamps[stampHash_];
 
         require(_stampInfo.timestamp == 0, "TimeStamping: Hash collision.");
@@ -70,6 +87,13 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
             isSigned_ && (signers_.length == 0 || _stampInfo.signers.contains(msg.sender))
         ) {
             _sign(stampHash_);
+        }
+
+        uint256 extraCurrencyAmount_ = msg.value - fee;
+
+        if (extraCurrencyAmount_ > 0) {
+            (bool success_, ) = msg.sender.call{value: extraCurrencyAmount_}("");
+            require(success_, "TimeStamping: Failed to return currency.");
         }
     }
 
@@ -146,7 +170,8 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         return
             SignerInfo(
                 user_,
-                _stampInfo.isPublic || _stampInfo.signers.contains(user_),
+                !_signersStampHashes[user_].contains(stampHash_) &&
+                    (_stampInfo.isPublic || _stampInfo.signers.contains(user_)),
                 _signersTimetamps[user_][stampHash_]
             );
     }
