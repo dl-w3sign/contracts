@@ -91,6 +91,30 @@ interface ITimeStamping {
     ) external;
 
     /**
+     * @notice Function to set verifier address
+     * @param verifier_ an address of verifier
+     */
+    function setVerifier(address verifier_) external;
+
+    /**
+     * @notice Function for set fee for timestamp creation
+     * @param fee_ a fee for timestamp creation
+     */
+    function setFee(uint256 fee_) external;
+
+    /**
+     * @notice Function for obtain fee for timestamp creation
+     * @return fee a fee for timestamp creation
+     */
+    function fee() external view returns (uint256);
+
+    /**
+     * @notice Function for admin to withdraw fee
+     * @param recipient an address of recipient
+     */
+    function withdrawFee(address recipient) external;
+
+    /**
      * @notice Function for create new timestamp with provided signers and approved ZKP, if fee is paid
      * @param stampHash_ a new hash for timestamp
      * @param isSigned_ a parameter that shows whether user sign this stamp
@@ -109,18 +133,6 @@ interface ITimeStamping {
      * @param stampHash_ an existing hash
      */
     function sign(bytes32 stampHash_) external;
-
-    /**
-     * @notice Function for set fee for timestamp creation
-     * @param fee_ a fee for timestamp creation
-     */
-    function setFee(uint256 fee_) external;
-
-    /**
-     * @notice Function for admin to withdraw fee
-     * @param recipient an address of recipient
-     */
-    function withdrawFee(address recipient) external;
 
     /**
      * @notice Function for obtain hash of document
@@ -181,10 +193,4 @@ interface ITimeStamping {
         address user_,
         bytes32 stampHash_
     ) external view returns (SignerInfo memory signerInfo);
-
-    /**
-     * @notice Function to set verifier address
-     * @param verifier_ an address of verifier
-     */
-    function setVerifier(address verifier_) external;
 }

@@ -15,7 +15,7 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Paginator for EnumerableSet.AddressSet;
 
-    uint256 public fee;
+    uint256 public override fee;
 
     HashVerifier internal _verifier;
     IPoseidonHash internal _poseidonHash;
@@ -40,6 +40,17 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
 
     function setVerifier(address verifier_) external onlyOwner {
         _verifier = HashVerifier(verifier_);
+    }
+
+    function setFee(uint256 fee_) external onlyOwner {
+        fee = fee_;
+    }
+
+    function withdrawFee(address recipient) external onlyOwner {
+        require(address(this).balance > 0, "TimeStamping: Nothing to withdraw.");
+
+        (bool success_, ) = recipient.call{value: address(this).balance}("");
+        require(success_, "TimeStamping: Failed to return currency.");
     }
 
     function createStamp(
@@ -102,17 +113,6 @@ contract TimeStamping is ITimeStamping, OwnableUpgradeable, UUPSUpgradeable {
         );
 
         _sign(stampHash_);
-    }
-
-    function setFee(uint256 fee_) external onlyOwner {
-        fee = fee_;
-    }
-
-    function withdrawFee(address recipient) external onlyOwner {
-        require(address(this).balance > 0, "TimeStamping: Nothing to withdraw.");
-
-        (bool success_, ) = recipient.call{value: address(this).balance}("");
-        require(success_, "TimeStamping: Failed to return currency.");
     }
 
     function getStampHashByBytes(
