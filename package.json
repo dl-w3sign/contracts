@@ -1,7 +1,7 @@
 {
   "name": "time-stamping-contracts",
   "version": "3.3.0",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Distributed Lab",
   "description": "",
   "scripts": {
