@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@dlsl/dev-modules/libs/arrays/Paginator.sol";
+import "@solarity/solidity-lib/libs/arrays/Paginator.sol";
 
 import "./interfaces/ITimeStamping.sol";
 import "./interfaces/IPoseidonHash.sol";
